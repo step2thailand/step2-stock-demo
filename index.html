@@ -4,352 +4,559 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Step2Thailand Stock</title>
+  <title>Step2Thailand Stock Demo</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; }
     body {
-      margin: 0; background: #f5f7fa; color: #25334a;
-      font-family: Arial, Tahoma, sans-serif;
+      margin: 0; padding: 20px; background: #f4f6f9;
+      color: #253247; font-family: Arial, sans-serif;
     }
+    .container { max-width: 1200px; margin: auto; }
     header {
-      background: white; padding: 20px 5%;
-      border-bottom: 1px solid #e5eaf0;
       display: flex; justify-content: space-between;
-      align-items: center; gap: 12px;
+      align-items: center; gap: 12px; flex-wrap: wrap;
+      margin-bottom: 20px;
     }
-    header h1 { margin: 0; font-size: 23px; }
-    header p { margin: 7px 0 0; color: #68778b; font-size: 13px; }
-    main { max-width: 1100px; margin: auto; padding: 24px 16px; }
-    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .card, .panel {
-      background: white; border: 1px solid #e5eaf0;
-      border-radius: 12px; padding: 18px;
+    h1 { margin: 0; font-size: 25px; }
+    h2 { font-size: 18px; margin-top: 0; }
+    .panel, .metric {
+      background: white; border: 1px solid #e3e8ef;
+      border-radius: 12px; padding: 18px; margin-bottom: 18px;
     }
-    .label { color: #68778b; font-size: 13px; }
-    .number { font-size: 28px; font-weight: bold; margin-top: 8px; }
-    .panel { margin-top: 18px; }
-    .toolbar {
-      display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0;
+    .metrics {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
     }
-    input, select, button {
-      padding: 11px; border: 1px solid #ccd5e0;
-      border-radius: 8px; font-size: 14px;
+    .metric-label { color: #64748b; font-size: 14px; }
+    .metric-value { font-size: 28px; font-weight: bold; margin-top: 8px; }
+    .form-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
     }
-    input, select { background: white; }
-    input { width: 100%; min-width: 0; }
+    label { display: block; font-size: 14px; margin-bottom: 6px; }
+    input, select, textarea, button {
+      font: inherit; width: 100%; padding: 10px;
+      border-radius: 7px; border: 1px solid #cbd5e1;
+    }
+    input, select, textarea { background: white; }
+    textarea { resize: vertical; min-height: 42px; }
     button {
-      cursor: pointer; background: #25334a; color: white;
-      border: none; font-weight: bold;
+      border: 0; background: #2463eb; color: white;
+      cursor: pointer; font-weight: bold;
     }
     button:disabled { opacity: .6; cursor: wait; }
-    .logout { background: white; color: #25334a; border: 1px solid #ccd5e0; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
-    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #edf0f4; }
-    th { color: #68778b; font-size: 12px; }
-    td { font-size: 13px; }
-    .status { margin-top: 12px; font-size: 13px; color: #68778b; }
-    .error { color: #b42318; }
+    .secondary { background: #64748b; width: auto; }
+    .submit-row { margin-top: 15px; max-width: 220px; }
     .hidden { display: none !important; }
-    .login-wrap { max-width: 420px; margin: 40px auto; }
-    .login-wrap h2 { margin-top: 0; font-size: 21px; }
-    .field { margin: 16px 0; }
-    .field label { display: block; margin-bottom: 7px; font-size: 14px; }
-    .login-wrap button { width: 100%; }
-    @media(max-width: 600px) {
-      .cards { grid-template-columns: 1fr; }
-      header h1 { font-size: 19px; }
-      header { padding: 16px; }
+    .status { margin-top: 10px; font-size: 14px; overflow-wrap: anywhere; }
+    .success { color: #15803d; }
+    .error { color: #b91c1c; }
+    .toolbar {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .toolbar input, .toolbar select { max-width: 300px; }
+    .table-wrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; min-width: 650px; }
+    th, td {
+      padding: 11px; border-bottom: 1px solid #e5e7eb;
+      text-align: left; font-size: 14px;
+    }
+    th { background: #f8fafc; }
+    .muted { color: #64748b; font-size: 13px; }
+    @media (max-width: 700px) {
+      body { padding: 12px; }
+      .metrics { grid-template-columns: 1fr; gap: 8px; }
+      .metric { margin-bottom: 0; }
+      .form-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 21px; }
     }
   </style>
 </head>
 <body>
+<div class="container">
+
   <header>
-    <div>
-      <h1>Step2Thailand Stock</h1>
-      <p>ระบบจัดการคลังสินค้า · Demo Version</p>
-    </div>
-    <button id="logoutBtn" class="logout hidden" type="button">
+    <h1>Step2Thailand Stock Demo</h1>
+    <button id="logoutBtn" class="secondary hidden" type="button">
       ออกจากระบบ
     </button>
   </header>
 
-  <main>
-    <section id="loginSection" class="login-wrap panel">
-      <h2>เข้าสู่ระบบ</h2>
-      <p class="label">กรุณาเข้าสู่ระบบเพื่อดูข้อมูลคลังสินค้า</p>
-      <form id="loginForm">
-        <div class="field">
-          <label for="email">อีเมล</label>
-          <input id="email" type="email" autocomplete="username"
-            placeholder="กรอกอีเมล" required>
-        </div>
-        <div class="field">
-          <label for="password">รหัสผ่าน</label>
-          <input id="password" type="password"
-            autocomplete="current-password"
-            placeholder="กรอกรหัสผ่าน" required>
-        </div>
-        <button id="loginBtn" type="submit">เข้าสู่ระบบ</button>
-      </form>
+  <section id="loginSection" class="panel">
+    <h2>เข้าสู่ระบบ</h2>
+    <form id="loginForm">
+      <p>
+        <label for="email">อีเมล</label>
+        <input id="email" type="email" required autocomplete="username">
+      </p>
+      <p>
+        <label for="password">รหัสผ่าน</label>
+        <input id="password" type="password" required autocomplete="current-password">
+      </p>
+      <button id="loginBtn" type="submit">เข้าสู่ระบบ</button>
       <div id="loginStatus" class="status" role="status"></div>
-    </section>
+    </form>
+  </section>
 
-    <section id="stockSection" class="hidden">
-      <div class="cards">
-        <div class="card">
-          <div class="label">จำนวน SKU</div>
-          <div class="number" id="skuCount">—</div>
-        </div>
-        <div class="card">
-          <div class="label">จำนวนสินค้าคงเหลือรวม</div>
-          <div class="number" id="stockCount">—</div>
-        </div>
-        <div class="card">
-          <div class="label">ตำแหน่งจัดเก็บ</div>
-          <div class="number" id="locationCount">—</div>
-        </div>
+  <section id="stockSection" class="hidden">
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">จำนวน SKU</div>
+        <div id="skuCount" class="metric-value">0</div>
       </div>
+      <div class="metric">
+        <div class="metric-label">จำนวนสินค้าคงเหลือรวม</div>
+        <div id="stockCount" class="metric-value">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">จำนวน Location</div>
+        <div id="locationCount" class="metric-value">0</div>
+      </div>
+    </div>
 
-      <section class="panel">
-        <h2 style="font-size:18px;margin-top:0">ค้นหาสินค้า</h2>
-        <div class="toolbar">
-          <input id="search"
-            placeholder="ค้นหา SKU, ชื่อสินค้า หรือ Barcode">
-          <select id="floor">
-            <option value="">ทุกชั้น</option>
-            <option value="1">ชั้น 1</option>
-            <option value="2">ชั้น 2</option>
-          </select>
+    <section class="panel">
+      <h2>ทำรายการสต๊อก</h2>
+      <p class="muted">
+        เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง
+      </p>
+
+      <form id="transactionForm">
+        <div class="form-grid">
+          <div>
+            <label for="transactionType">ประเภทธุรกรรม</label>
+            <select id="transactionType" required>
+              <option value="IN">รับเข้า (IN)</option>
+              <option value="OUT">เบิกออก (OUT)</option>
+              <option value="MOVE">ย้ายตำแหน่ง (MOVE)</option>
+            </select>
+          </div>
+          <div>
+            <label for="transactionProduct">สินค้า</label>
+            <select id="transactionProduct" required></select>
+          </div>
+          <div>
+            <label for="quantity">จำนวน</label>
+            <input id="quantity" type="number" min="1" step="1" required>
+          </div>
+          <div id="sourceField" class="hidden">
+            <label for="sourceLocation">ตำแหน่งต้นทาง</label>
+            <select id="sourceLocation"></select>
+          </div>
+          <div id="destinationField">
+            <label for="destinationLocation">ตำแหน่งปลายทาง</label>
+            <select id="destinationLocation" required></select>
+          </div>
+          <div>
+            <label for="notes">หมายเหตุ (ถ้ามี)</label>
+            <input id="notes" type="text" maxlength="500"
+              placeholder="เช่น รับสินค้าจากซัพพลายเออร์">
+          </div>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>ชื่อสินค้า</th>
-                <th>ตำแหน่ง</th>
-                <th>ชั้น</th>
-                <th>คงเหลือ</th>
-              </tr>
-            </thead>
-            <tbody id="products">
-              <tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>
-            </tbody>
-          </table>
+        <div class="submit-row">
+          <button id="submitTransaction" type="submit">ยืนยันรายการ</button>
         </div>
-        <div id="status" class="status">กำลังตรวจสอบระบบ</div>
-      </section>
+        <div id="transactionStatus" class="status" role="status"></div>
+      </form>
     </section>
-  </main>
 
-  <script>
-    const SUPABASE_URL =
-      "https://btggzmfvubvizrgfbckp.supabase.co";
-    const SUPABASE_ANON_KEY =
-      "sb_publishable_AAm89Ef-82pkqJJGmC3t4A_83S7c7sF";
+    <section class="panel">
+      <h2>ยอดสต๊อกสินค้า</h2>
+      <div class="toolbar">
+        <input id="search" type="search"
+          placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode">
+        <select id="floor">
+          <option value="">ทุกชั้น</option>
+          <option value="1">ชั้น 1</option>
+          <option value="2">ชั้น 2</option>
+        </select>
+        <button id="refreshBtn" class="secondary" type="button">รีเฟรช</button>
+      </div>
+      <div id="status" class="status" role="status"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>ชื่อสินค้า</th>
+              <th>Location</th>
+              <th>ชั้น</th>
+              <th>จำนวน</th>
+            </tr>
+          </thead>
+          <tbody id="products"></tbody>
+        </table>
+      </div>
+    </section>
 
-    const db = window.supabase.createClient(
-      SUPABASE_URL, SUPABASE_ANON_KEY
-    );
+    <section class="panel">
+      <h2>ประวัติธุรกรรมล่าสุด</h2>
+      <p class="muted">แสดงรายการล่าสุดไม่เกิน 50 รายการ</p>
+      <div id="historyStatus" class="status" role="status"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>วันและเวลา</th>
+              <th>ประเภท</th>
+              <th>SKU</th>
+              <th>จำนวน</th>
+              <th>ต้นทาง</th>
+              <th>ปลายทาง</th>
+              <th>หมายเหตุ</th>
+            </tr>
+          </thead>
+          <tbody id="historyRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+</div>
 
-    const loginSection = document.getElementById("loginSection");
-    const stockSection = document.getElementById("stockSection");
-    const loginForm = document.getElementById("loginForm");
-    const loginBtn = document.getElementById("loginBtn");
-    const loginStatus = document.getElementById("loginStatus");
-    const logoutBtn = document.getElementById("logoutBtn");
-    const tbody = document.getElementById("products");
-    const statusBox = document.getElementById("status");
+<script>
+  const SUPABASE_URL = 'https://btggzmfvubvizrgfbckp.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_AAm89Ef-82pkqJJGmC3t4A_83S7c7sF';
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let rows = [];
-    let currentUserId = null;
-    let authVersion = 0;
+  const $ = id => document.getElementById(id);
+  let productsData = [];
+  let locationsData = [];
+  let balanceData = [];
+  let historyData = [];
+  let currentUserId = null;
+  let authVersion = 0;
+  let busy = false;
 
-    function showStatus(element, message, error = false) {
-      element.textContent = message;
-      element.className = error ? "status error" : "status";
-    }
+  function setStatus(id, message, isError = false) {
+    const el = $(id);
+    el.textContent = message || '';
+    el.className = 'status' + (message ? (isError ? ' error' : ' success') : '');
+  }
 
-    function clearStock() {
-      rows = [];
-      document.getElementById("skuCount").textContent = "—";
-      document.getElementById("stockCount").textContent = "—";
-      document.getElementById("locationCount").textContent = "—";
-      tbody.replaceChildren();
-      document.getElementById("search").value = "";
-      document.getElementById("floor").value = "";
-    }
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;',
+      '"': '&quot;', "'": '&#39;'
+    })[ch]);
+  }
 
-    function render() {
-      const term = document.getElementById("search")
-        .value.trim().toLowerCase();
-      const floor = document.getElementById("floor").value;
+  function locationName(id) {
+    if (!id) return '—';
+    const location = locationsData.find(item => item.id === id);
+    return location ? location.location_code : 'ไม่พบ Location';
+  }
 
-      const filtered = rows.filter(r =>
-        (!term ||
-          r.sku.toLowerCase().includes(term) ||
-          r.product_name.toLowerCase().includes(term) ||
-          (r.barcode || "").toLowerCase().includes(term)) &&
-        (!floor || String(r.floor_no) === floor)
+  function productName(id) {
+    const product = productsData.find(item => item.id === id);
+    return product ? product.sku : 'ไม่พบสินค้า';
+  }
+
+  function renderStock() {
+    const search = $('search').value.trim().toLowerCase();
+    const floor = $('floor').value;
+    const rows = [];
+
+    for (const product of productsData) {
+      const matchingBalances = balanceData.filter(
+        b => b.product_id === product.id
       );
 
-      tbody.replaceChildren();
-
-      if (!filtered.length) {
-        const tr = tbody.insertRow();
-        const td = tr.insertCell();
-        td.colSpan = 5;
-        td.textContent = "ไม่พบสินค้า";
-        return;
-      }
-
-      filtered.forEach(r => {
-        const tr = tbody.insertRow();
-        [
-          r.sku, r.product_name, r.location_code,
-          "ชั้น " + r.floor_no,
-          Number(r.quantity).toLocaleString("th-TH")
-        ].forEach(value => {
-          const td = tr.insertCell();
-          td.textContent = value;
-        });
-      });
-    }
-
-    async function loadData(version) {
-      clearStock();
-      showStatus(statusBox, "กำลังโหลดข้อมูลสินค้า...");
-
-      try {
-        const [p, l, b] = await Promise.all([
-          db.from("products")
-            .select("id, sku, product_name, barcode")
-            .eq("is_active", true)
-            .order("sku"),
-          db.from("locations")
-            .select("id, location_code, floor_no")
-            .eq("is_active", true),
-          db.from("stock_balances")
-            .select("product_id, location_id, quantity")
-        ]);
-
-        if (version !== authVersion || !currentUserId) return;
-        if (p.error) throw p.error;
-        if (l.error) throw l.error;
-        if (b.error) throw b.error;
-
-        const productMap = new Map(p.data.map(x => [x.id, x]));
-        const locationMap = new Map(l.data.map(x => [x.id, x]));
-
-        rows = b.data.map(x => {
-          const product = productMap.get(x.product_id);
-          const location = locationMap.get(x.location_id);
-          if (!product || !location) return null;
-
-          return {
-            ...product,
-            location_code: location.location_code,
-            floor_no: location.floor_no,
-            quantity: x.quantity
-          };
-        }).filter(Boolean);
-
-        document.getElementById("skuCount").textContent = p.data.length;
-        document.getElementById("stockCount").textContent =
-          b.data.reduce((sum, x) => sum + Number(x.quantity), 0)
-            .toLocaleString("th-TH");
-        document.getElementById("locationCount").textContent =
-          l.data.length;
-
-        render();
-        showStatus(statusBox, "เชื่อมต่อฐานข้อมูลสำเร็จ");
-      } catch (err) {
-        if (version !== authVersion || !currentUserId) return;
-        clearStock();
-        showStatus(
-          statusBox,
-          "โหลดข้อมูลไม่สำเร็จ: " + (err.message || "เกิดข้อผิดพลาด"),
-          true
+      for (const balance of matchingBalances) {
+        const location = locationsData.find(
+          l => l.id === balance.location_id
         );
+        if (!location) continue;
+        if (floor && String(location.floor_no) !== floor) continue;
+
+        const searchable = [
+          product.sku, product.product_name, product.barcode
+        ].join(' ').toLowerCase();
+
+        if (search && !searchable.includes(search)) continue;
+
+        rows.push({
+          sku: product.sku,
+          name: product.product_name,
+          location: location.location_code,
+          floor: location.floor_no,
+          quantity: balance.quantity
+        });
       }
     }
 
-    async function applySession(session) {
-      const version = ++authVersion;
-      currentUserId = session?.user?.id || null;
+    rows.sort((a, b) =>
+      a.sku.localeCompare(b.sku) ||
+      a.location.localeCompare(b.location)
+    );
 
-      if (!session) {
-        clearStock();
-        loginSection.classList.remove("hidden");
-        stockSection.classList.add("hidden");
-        logoutBtn.classList.add("hidden");
-        showStatus(loginStatus, "");
-        return;
-      }
+    $('products').innerHTML = rows.length
+      ? rows.map(r => `<tr>
+          <td>${escapeHtml(r.sku)}</td>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(r.location)}</td>
+          <td>${escapeHtml(r.floor)}</td>
+          <td>${escapeHtml(r.quantity)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5">ไม่พบข้อมูลสต๊อก</td></tr>';
 
-      loginSection.classList.add("hidden");
-      stockSection.classList.remove("hidden");
-      logoutBtn.classList.remove("hidden");
+    $('skuCount').textContent = productsData.length.toLocaleString();
+    $('stockCount').textContent = balanceData.reduce(
+      (sum, item) => sum + Number(item.quantity || 0), 0
+    ).toLocaleString();
+    $('locationCount').textContent = locationsData.length.toLocaleString();
+  }
+
+  function fillSelect(selectId, items, valueField, labelFn, placeholder) {
+    const select = $(selectId);
+    const previousValue = select.value;
+    select.innerHTML = '';
+
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = placeholder;
+    select.appendChild(first);
+
+    for (const item of items) {
+      const option = document.createElement('option');
+      option.value = item[valueField];
+      option.textContent = labelFn(item);
+      select.appendChild(option);
+    }
+
+    if (items.some(item => item[valueField] === previousValue)) {
+      select.value = previousValue;
+    }
+  }
+
+  function fillTransactionSelects() {
+    fillSelect(
+      'transactionProduct', productsData, 'id',
+      p => `${p.sku} — ${p.product_name}`,
+      'เลือกสินค้า'
+    );
+    const sortedLocations = [...locationsData].sort((a, b) =>
+      a.location_code.localeCompare(b.location_code)
+    );
+    const locationLabel = l => `${l.location_code} (ชั้น ${l.floor_no})`;
+    fillSelect('sourceLocation', sortedLocations, 'id', locationLabel, 'เลือกต้นทาง');
+    fillSelect('destinationLocation', sortedLocations, 'id', locationLabel, 'เลือกปลายทาง');
+    updateTransactionFields();
+  }
+
+  function updateTransactionFields() {
+    const type = $('transactionType').value;
+    const needsSource = type === 'OUT' || type === 'MOVE';
+    const needsDestination = type === 'IN' || type === 'MOVE';
+
+    $('sourceField').classList.toggle('hidden', !needsSource);
+    $('destinationField').classList.toggle('hidden', !needsDestination);
+    $('sourceLocation').required = needsSource;
+    $('destinationLocation').required = needsDestination;
+  }
+
+  async function loadData(version) {
+    setStatus('status', 'กำลังโหลดข้อมูล...');
+    const [pRes, lRes, bRes] = await Promise.all([
+      db.from('products')
+        .select('id, sku, product_name, barcode')
+        .eq('is_active', true)
+        .order('sku'),
+      db.from('locations')
+        .select('id, location_code, floor_no')
+        .eq('is_active', true)
+        .order('location_code'),
+      db.from('stock_balances')
+        .select('id, product_id, location_id, quantity')
+    ]);
+
+    if (version !== authVersion || !currentUserId) return;
+
+    const firstError = pRes.error || lRes.error || bRes.error;
+    if (firstError) {
+      setStatus('status', 'โหลดข้อมูลไม่สำเร็จ: ' + firstError.message, true);
+      return;
+    }
+
+    productsData = pRes.data || [];
+    locationsData = lRes.data || [];
+    balanceData = bRes.data || [];
+    renderStock();
+    fillTransactionSelects();
+    setStatus('status', 'โหลดข้อมูลสต๊อกแล้ว');
+  }
+
+  async function loadHistory(version) {
+    setStatus('historyStatus', 'กำลังโหลดประวัติ...');
+    const { data, error } = await db.from('stock_transactions')
+      .select('id, transaction_type, product_id, quantity, from_location_id, to_location_id, notes, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (version !== authVersion || !currentUserId) return;
+
+    if (error) {
+      setStatus('historyStatus', 'โหลดประวัติไม่สำเร็จ: ' + error.message, true);
+      return;
+    }
+
+    historyData = data || [];
+    renderHistory();
+    setStatus('historyStatus', `แสดง ${historyData.length} รายการล่าสุด`);
+  }
+
+  function renderHistory() {
+    const typeLabels = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง' };
+
+    $('historyRows').innerHTML = historyData.length
+      ? historyData.map(item => `<tr>
+          <td>${escapeHtml(new Date(item.created_at).toLocaleString('th-TH'))}</td>
+          <td>${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}</td>
+          <td>${escapeHtml(productName(item.product_id))}</td>
+          <td>${escapeHtml(item.quantity)}</td>
+          <td>${escapeHtml(locationName(item.from_location_id))}</td>
+          <td>${escapeHtml(locationName(item.to_location_id))}</td>
+          <td>${escapeHtml(item.notes || '—')}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="7">ยังไม่มีประวัติธุรกรรม</td></tr>';
+  }
+
+  async function refreshAll() {
+    if (!currentUserId) return;
+    const version = authVersion;
+    await loadData(version);
+    await loadHistory(version);
+  }
+
+  async function applySession(session) {
+    const nextUserId = session?.user?.id || null;
+    if (nextUserId === currentUserId) return;
+
+    currentUserId = nextUserId;
+    authVersion++;
+    const version = authVersion;
+
+    $('loginSection').classList.toggle('hidden', !!currentUserId);
+    $('stockSection').classList.toggle('hidden', !currentUserId);
+    $('logoutBtn').classList.toggle('hidden', !currentUserId);
+
+    if (currentUserId) {
+      setStatus('loginStatus', '');
       await loadData(version);
+      await loadHistory(version);
+    } else {
+      productsData = [];
+      locationsData = [];
+      balanceData = [];
+      historyData = [];
+      $('products').innerHTML = '';
+      $('historyRows').innerHTML = '';
+    }
+  }
+
+  $('loginForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = $('loginBtn');
+    button.disabled = true;
+    setStatus('loginStatus', 'กำลังเข้าสู่ระบบ...');
+
+    const { error } = await db.auth.signInWithPassword({
+      email: $('email').value.trim(),
+      password: $('password').value
+    });
+
+    button.disabled = false;
+    if (error) setStatus('loginStatus', error.message, true);
+    else setStatus('loginStatus', 'เข้าสู่ระบบสำเร็จ');
+  });
+
+  $('logoutBtn').addEventListener('click', async () => {
+    const { error } = await db.auth.signOut();
+    if (error) setStatus('status', error.message, true);
+  });
+
+  $('transactionType').addEventListener('change', updateTransactionFields);
+  $('search').addEventListener('input', renderStock);
+  $('floor').addEventListener('change', renderStock);
+  $('refreshBtn').addEventListener('click', refreshAll);
+
+  $('transactionForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !currentUserId) return;
+
+    const type = $('transactionType').value;
+    const productId = $('transactionProduct').value;
+    const quantity = Number($('quantity').value);
+    const sourceId = $('sourceLocation').value || null;
+    const destinationId = $('destinationLocation').value || null;
+    const notes = $('notes').value.trim() || null;
+
+    if (!productId || !Number.isSafeInteger(quantity) || quantity <= 0) {
+      setStatus('transactionStatus', 'กรุณาเลือกสินค้าและระบุจำนวนเป็นจำนวนเต็มมากกว่า 0', true);
+      return;
+    }
+    if ((type === 'OUT' || type === 'MOVE') && !sourceId) {
+      setStatus('transactionStatus', 'กรุณาเลือกตำแหน่งต้นทาง', true);
+      return;
+    }
+    if ((type === 'IN' || type === 'MOVE') && !destinationId) {
+      setStatus('transactionStatus', 'กรุณาเลือกตำแหน่งปลายทาง', true);
+      return;
+    }
+    if (type === 'MOVE' && sourceId === destinationId) {
+      setStatus('transactionStatus', 'ต้นทางและปลายทางต้องไม่ใช่ตำแหน่งเดียวกัน', true);
+      return;
     }
 
-    loginForm.addEventListener("submit", async event => {
-      event.preventDefault();
-      loginBtn.disabled = true;
-      showStatus(loginStatus, "กำลังเข้าสู่ระบบ...");
+    const product = productsData.find(p => p.id === productId);
+    const typeLabel = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง' }[type];
+    const confirmMessage =
+      `ยืนยัน${typeLabel}\nสินค้า: ${product?.sku || ''}\nจำนวน: ${quantity}\n` +
+      `ต้นทาง: ${locationName(sourceId)}\nปลายทาง: ${locationName(destinationId)}`;
 
-      try {
-        const { error } = await db.auth.signInWithPassword({
-          email: document.getElementById("email").value.trim(),
-          password: document.getElementById("password").value
-        });
+    if (!window.confirm(confirmMessage)) return;
 
-        if (error) throw error;
-        document.getElementById("password").value = "";
-        showStatus(loginStatus, "");
-      } catch (err) {
-        showStatus(
-          loginStatus,
-          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน",
-          true
-        );
-      } finally {
-        loginBtn.disabled = false;
-      }
-    });
+    busy = true;
+    $('submitTransaction').disabled = true;
+    setStatus('transactionStatus', 'กำลังบันทึกรายการ...');
 
-    logoutBtn.addEventListener("click", async () => {
-      logoutBtn.disabled = true;
-      try {
-        const { error } = await db.auth.signOut();
-        if (error) throw error;
-        await applySession(null);
-      } catch (err) {
-        showStatus(statusBox, "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง", true);
-      } finally {
-        logoutBtn.disabled = false;
-      }
-    });
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const { error } = await db.rpc('process_stock_transaction', {
+        p_idempotency_key: idempotencyKey,
+        p_transaction_type: type,
+        p_product_id: productId,
+        p_quantity: quantity,
+        p_from_location_id: sourceId,
+        p_to_location_id: destinationId,
+        p_notes: notes
+      });
 
-    db.auth.onAuthStateChange((_event, session) => {
-      void applySession(session);
-    });
+      if (error) throw error;
 
-    (async function init() {
-      const { data, error } = await db.auth.getSession();
-      if (error) {
-        showStatus(loginStatus, "ตรวจสอบสถานะ Login ไม่สำเร็จ", true);
-        return;
-      }
-      await applySession(data.session);
-    })();
+      $('quantity').value = '';
+      $('notes').value = '';
+      setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
+      await refreshAll();
+    } catch (error) {
+      setStatus('transactionStatus', 'บันทึกไม่สำเร็จ: ' + error.message, true);
+    } finally {
+      busy = false;
+      $('submitTransaction').disabled = false;
+    }
+  });
 
-    document.getElementById("search")
-      .addEventListener("input", render);
-    document.getElementById("floor")
-      .addEventListener("change", render);
-  </script>
+  db.auth.onAuthStateChange((_event, session) => {
+    setTimeout(() => applySession(session), 0);
+  });
+
+  (async function init() {
+    const { data, error } = await db.auth.getSession();
+    if (error) {
+      setStatus('loginStatus', error.message, true);
+      return;
+    }
+    await applySession(data.session);
+  })();
+</script>
 </body>
 </html>
