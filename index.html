@@ -481,11 +481,10 @@ function renderProductManagement() {
           <td>${escapeHtml(p.unit || 'ชิ้น')}</td>
           <td>${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
           <td>
-            <button
-              type="button"
-              data-edit-product="${escapeHtml(p.id)}"
-              style="width:auto;"
-            >แก้ไข</button>
+            
+<button type="button" data-edit-product="${escapeHtml(p.id)}" style="width:auto;">แก้ไข</button>
+${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}" style="width:auto;background:#dc2626;margin-top:4px;">ลบ</button>` : ''}
+
           </td>
         </tr>
       `).join('')
@@ -518,6 +517,48 @@ function renderProductManagement() {
         });
       });
     });
+    $('productManageRows').querySelectorAll('[data-delete-product]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const productId = button.getAttribute('data-delete-product');
+      const product = productsData.find(p => p.id === productId);
+
+      if (!product) return;
+
+      const confirmed = confirm(
+        `ยืนยันลบสินค้า ${product.sku} — ${product.product_name} หรือไม่?\n\nระบบจะไม่ลบสินค้าที่มียอดสต็อกหรือมีประวัติ`
+      );
+
+      if (!confirmed) return;
+
+      button.disabled = true;
+      setStatus('productManageStatus', 'กำลังตรวจสอบและลบสินค้า...');
+
+      try {
+        const { data, error } = await db.rpc('delete_product_safely', {
+          p_product_id: productId
+        });
+
+        if (error) throw error;
+
+        setStatus(
+          'productManageStatus',
+          data?.message || 'ลบสินค้าเรียบร้อยแล้ว'
+        );
+
+        await refreshAll();
+        renderProductManagement();
+      } catch (error) {
+        console.error('Product delete error:', error);
+        setStatus(
+          'productManageStatus',
+          `ลบไม่สำเร็จ: ${error.message || 'เกิดข้อผิดพลาด'}`,
+          true
+        );
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
 }
   
 function fillTransactionSelects() {
