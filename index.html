@@ -15,6 +15,8 @@
     header {
       background: white; padding: 20px 5%;
       border-bottom: 1px solid #e5eaf0;
+      display: flex; justify-content: space-between;
+      align-items: center; gap: 12px;
     }
     header h1 { margin: 0; font-size: 23px; }
     header p { margin: 7px 0 0; color: #68778b; font-size: 13px; }
@@ -30,11 +32,18 @@
     .toolbar {
       display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0;
     }
-    input, select {
+    input, select, button {
       padding: 11px; border: 1px solid #ccd5e0;
-      border-radius: 8px; font-size: 14px; background: white;
+      border-radius: 8px; font-size: 14px;
     }
-    input { flex: 1; min-width: 200px; }
+    input, select { background: white; }
+    input { width: 100%; min-width: 0; }
+    button {
+      cursor: pointer; background: #25334a; color: white;
+      border: none; font-weight: bold;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    .logout { background: white; color: #25334a; border: 1px solid #ccd5e0; }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; white-space: nowrap; }
     th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #edf0f4; }
@@ -42,87 +51,147 @@
     td { font-size: 13px; }
     .status { margin-top: 12px; font-size: 13px; color: #68778b; }
     .error { color: #b42318; }
+    .hidden { display: none !important; }
+    .login-wrap { max-width: 420px; margin: 40px auto; }
+    .login-wrap h2 { margin-top: 0; font-size: 21px; }
+    .field { margin: 16px 0; }
+    .field label { display: block; margin-bottom: 7px; font-size: 14px; }
+    .login-wrap button { width: 100%; }
     @media(max-width: 600px) {
       .cards { grid-template-columns: 1fr; }
-      header h1 { font-size: 20px; }
+      header h1 { font-size: 19px; }
+      header { padding: 16px; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Step2Thailand Stock</h1>
-    <p>ระบบจัดการคลังสินค้า · Demo Version</p>
+    <div>
+      <h1>Step2Thailand Stock</h1>
+      <p>ระบบจัดการคลังสินค้า · Demo Version</p>
+    </div>
+    <button id="logoutBtn" class="logout hidden" type="button">
+      ออกจากระบบ
+    </button>
   </header>
 
   <main>
-    <div class="cards">
-      <div class="card">
-        <div class="label">จำนวน SKU</div>
-        <div class="number" id="skuCount">—</div>
-      </div>
-      <div class="card">
-        <div class="label">จำนวนสินค้าคงเหลือรวม</div>
-        <div class="number" id="stockCount">—</div>
-      </div>
-      <div class="card">
-        <div class="label">ตำแหน่งจัดเก็บ</div>
-        <div class="number" id="locationCount">—</div>
-      </div>
-    </div>
+    <section id="loginSection" class="login-wrap panel">
+      <h2>เข้าสู่ระบบ</h2>
+      <p class="label">กรุณาเข้าสู่ระบบเพื่อดูข้อมูลคลังสินค้า</p>
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">อีเมล</label>
+          <input id="email" type="email" autocomplete="username"
+            placeholder="กรอกอีเมล" required>
+        </div>
+        <div class="field">
+          <label for="password">รหัสผ่าน</label>
+          <input id="password" type="password"
+            autocomplete="current-password"
+            placeholder="กรอกรหัสผ่าน" required>
+        </div>
+        <button id="loginBtn" type="submit">เข้าสู่ระบบ</button>
+      </form>
+      <div id="loginStatus" class="status" role="status"></div>
+    </section>
 
-    <section class="panel">
-      <h2 style="font-size:18px;margin-top:0">ค้นหาสินค้า</h2>
-      <div class="toolbar">
-        <input id="search" placeholder="ค้นหา SKU, ชื่อสินค้า หรือ Barcode">
-        <select id="floor">
-          <option value="">ทุกชั้น</option>
-          <option value="1">ชั้น 1</option>
-          <option value="2">ชั้น 2</option>
-        </select>
+    <section id="stockSection" class="hidden">
+      <div class="cards">
+        <div class="card">
+          <div class="label">จำนวน SKU</div>
+          <div class="number" id="skuCount">—</div>
+        </div>
+        <div class="card">
+          <div class="label">จำนวนสินค้าคงเหลือรวม</div>
+          <div class="number" id="stockCount">—</div>
+        </div>
+        <div class="card">
+          <div class="label">ตำแหน่งจัดเก็บ</div>
+          <div class="number" id="locationCount">—</div>
+        </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>ชื่อสินค้า</th>
-              <th>ตำแหน่ง</th>
-              <th>ชั้น</th>
-              <th>คงเหลือ</th>
-            </tr>
-          </thead>
-          <tbody id="products">
-            <tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="status" id="status">รอการเชื่อมต่อฐานข้อมูล</div>
+
+      <section class="panel">
+        <h2 style="font-size:18px;margin-top:0">ค้นหาสินค้า</h2>
+        <div class="toolbar">
+          <input id="search"
+            placeholder="ค้นหา SKU, ชื่อสินค้า หรือ Barcode">
+          <select id="floor">
+            <option value="">ทุกชั้น</option>
+            <option value="1">ชั้น 1</option>
+            <option value="2">ชั้น 2</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>ชื่อสินค้า</th>
+                <th>ตำแหน่ง</th>
+                <th>ชั้น</th>
+                <th>คงเหลือ</th>
+              </tr>
+            </thead>
+            <tbody id="products">
+              <tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="status" class="status">กำลังตรวจสอบระบบ</div>
+      </section>
     </section>
   </main>
 
   <script>
-    // ใส่ค่าจาก Supabase Project Settings > API
-    const SUPABASE_URL = "https://btggzmfvubvizrgfbckp.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_AAm89Ef-82pkqJJGmC3t4A_83S7c7sF";
+    const SUPABASE_URL =
+      "https://btggzmfvubvizrgfbckp.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "sb_publishable_AAm89Ef-82pkqJJGmC3t4A_83S7c7sF";
 
+    const db = window.supabase.createClient(
+      SUPABASE_URL, SUPABASE_ANON_KEY
+    );
+
+    const loginSection = document.getElementById("loginSection");
+    const stockSection = document.getElementById("stockSection");
+    const loginForm = document.getElementById("loginForm");
+    const loginBtn = document.getElementById("loginBtn");
+    const loginStatus = document.getElementById("loginStatus");
+    const logoutBtn = document.getElementById("logoutBtn");
     const tbody = document.getElementById("products");
     const statusBox = document.getElementById("status");
-    let rows = [];
 
-    function showMessage(message, error = false) {
-      statusBox.textContent = message;
-      statusBox.className = error ? "status error" : "status";
+    let rows = [];
+    let currentUserId = null;
+    let authVersion = 0;
+
+    function showStatus(element, message, error = false) {
+      element.textContent = message;
+      element.className = error ? "status error" : "status";
+    }
+
+    function clearStock() {
+      rows = [];
+      document.getElementById("skuCount").textContent = "—";
+      document.getElementById("stockCount").textContent = "—";
+      document.getElementById("locationCount").textContent = "—";
+      tbody.replaceChildren();
+      document.getElementById("search").value = "";
+      document.getElementById("floor").value = "";
     }
 
     function render() {
-      const term = document.getElementById("search").value.trim().toLowerCase();
+      const term = document.getElementById("search")
+        .value.trim().toLowerCase();
       const floor = document.getElementById("floor").value;
 
       const filtered = rows.filter(r =>
         (!term ||
           r.sku.toLowerCase().includes(term) ||
           r.product_name.toLowerCase().includes(term) ||
-          (r.barcode || "").includes(term)) &&
+          (r.barcode || "").toLowerCase().includes(term)) &&
         (!floor || String(r.floor_no) === floor)
       );
 
@@ -138,26 +207,22 @@
 
       filtered.forEach(r => {
         const tr = tbody.insertRow();
-        [r.sku, r.product_name, r.location_code,
-         "ชั้น " + r.floor_no, r.quantity.toLocaleString("th-TH")]
-          .forEach(value => {
-            const td = tr.insertCell();
-            td.textContent = value;
-          });
+        [
+          r.sku, r.product_name, r.location_code,
+          "ชั้น " + r.floor_no,
+          Number(r.quantity).toLocaleString("th-TH")
+        ].forEach(value => {
+          const td = tr.insertCell();
+          td.textContent = value;
+        });
       });
     }
 
-    async function loadData() {
+    async function loadData(version) {
+      clearStock();
+      showStatus(statusBox, "กำลังโหลดข้อมูลสินค้า...");
+
       try {
-        if (SUPABASE_URL.startsWith("ใส่_") ||
-            SUPABASE_ANON_KEY.startsWith("ใส่_")) {
-          throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ Publishable Key");
-        }
-
-        const db = window.supabase.createClient(
-          SUPABASE_URL, SUPABASE_ANON_KEY
-        );
-
         const [p, l, b] = await Promise.all([
           db.from("products")
             .select("id, sku, product_name, barcode")
@@ -170,6 +235,7 @@
             .select("product_id, location_id, quantity")
         ]);
 
+        if (version !== authVersion || !currentUserId) return;
         if (p.error) throw p.error;
         if (l.error) throw l.error;
         if (b.error) throw b.error;
@@ -192,24 +258,98 @@
 
         document.getElementById("skuCount").textContent = p.data.length;
         document.getElementById("stockCount").textContent =
-          b.data.reduce((sum, x) => sum + x.quantity, 0).toLocaleString("th-TH");
-        document.getElementById("locationCount").textContent = l.data.length;
+          b.data.reduce((sum, x) => sum + Number(x.quantity), 0)
+            .toLocaleString("th-TH");
+        document.getElementById("locationCount").textContent =
+          l.data.length;
 
         render();
-        showMessage("เชื่อมต่อฐานข้อมูลสำเร็จ");
+        showStatus(statusBox, "เชื่อมต่อฐานข้อมูลสำเร็จ");
       } catch (err) {
-        showMessage("โหลดข้อมูลไม่สำเร็จ: " + err.message, true);
-        tbody.replaceChildren();
-        const tr = tbody.insertRow();
-        const td = tr.insertCell();
-        td.colSpan = 5;
-        td.textContent = "กรุณาตรวจสอบการตั้งค่าฐานข้อมูล";
+        if (version !== authVersion || !currentUserId) return;
+        clearStock();
+        showStatus(
+          statusBox,
+          "โหลดข้อมูลไม่สำเร็จ: " + (err.message || "เกิดข้อผิดพลาด"),
+          true
+        );
       }
     }
 
-    document.getElementById("search").addEventListener("input", render);
-    document.getElementById("floor").addEventListener("change", render);
-    loadData();
+    async function applySession(session) {
+      const version = ++authVersion;
+      currentUserId = session?.user?.id || null;
+
+      if (!session) {
+        clearStock();
+        loginSection.classList.remove("hidden");
+        stockSection.classList.add("hidden");
+        logoutBtn.classList.add("hidden");
+        showStatus(loginStatus, "");
+        return;
+      }
+
+      loginSection.classList.add("hidden");
+      stockSection.classList.remove("hidden");
+      logoutBtn.classList.remove("hidden");
+      await loadData(version);
+    }
+
+    loginForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      loginBtn.disabled = true;
+      showStatus(loginStatus, "กำลังเข้าสู่ระบบ...");
+
+      try {
+        const { error } = await db.auth.signInWithPassword({
+          email: document.getElementById("email").value.trim(),
+          password: document.getElementById("password").value
+        });
+
+        if (error) throw error;
+        document.getElementById("password").value = "";
+        showStatus(loginStatus, "");
+      } catch (err) {
+        showStatus(
+          loginStatus,
+          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน",
+          true
+        );
+      } finally {
+        loginBtn.disabled = false;
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      logoutBtn.disabled = true;
+      try {
+        const { error } = await db.auth.signOut();
+        if (error) throw error;
+        await applySession(null);
+      } catch (err) {
+        showStatus(statusBox, "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง", true);
+      } finally {
+        logoutBtn.disabled = false;
+      }
+    });
+
+    db.auth.onAuthStateChange((_event, session) => {
+      void applySession(session);
+    });
+
+    (async function init() {
+      const { data, error } = await db.auth.getSession();
+      if (error) {
+        showStatus(loginStatus, "ตรวจสอบสถานะ Login ไม่สำเร็จ", true);
+        return;
+      }
+      await applySession(data.session);
+    })();
+
+    document.getElementById("search")
+      .addEventListener("input", render);
+    document.getElementById("floor")
+      .addEventListener("change", render);
   </script>
 </body>
 </html>
