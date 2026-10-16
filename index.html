@@ -888,26 +888,36 @@ async function applySession(session) {
 }
 
 
-  $('loginForm').addEventListener('submit', async event => {
-    event.preventDefault();
-    const button = $('loginBtn');
-    button.disabled = true;
-    setStatus('loginStatus', 'กำลังเข้าสู่ระบบ...');
+  
+$('loginForm').addEventListener('submit', async event => {
+  event.preventDefault();
 
-    const { error } = await db.auth.signInWithPassword({
-      email: $('email').value.trim(),
-      password: $('password').value
-    });
+  const button = $('loginBtn');
+  button.disabled = true;
+  setStatus('loginStatus', 'กำลังเข้าสู่ระบบ...');
 
-    button.disabled = false;
-    if (error) setStatus('loginStatus', error.message, true);
-    else setStatus('loginStatus', 'เข้าสู่ระบบสำเร็จ');
+  const loginInput = $('email').value.trim();
+  const password = $('password').value;
+
+  // ถ้ากรอก Username ให้แปลงเป็นอีเมลภายใน
+  const email = loginInput.includes('@')
+    ? loginInput
+    : `${loginInput.toLowerCase()}@step2-stock-demo.invalid`;
+
+  const { error } = await db.auth.signInWithPassword({
+    email,
+    password
   });
 
-  $('logoutBtn').addEventListener('click', async () => {
-    const { error } = await db.auth.signOut();
-    if (error) setStatus('status', error.message, true);
-  });
+  button.disabled = false;
+
+  if (error) {
+    setStatus('loginStatus', 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Username และ Password', true);
+  } else {
+    setStatus('loginStatus', 'เข้าสู่ระบบสำเร็จ');
+  }
+});
+
 
   $('transactionType').addEventListener('change', updateTransactionFields);
   $('search').addEventListener('input', renderStock);
