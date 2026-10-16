@@ -200,6 +200,12 @@
 <div id="stockScanReader" class="hidden"
   style="width:100%; max-width:420px; margin-top:12px;"></div>
 <div id="stockScanStatus" class="status" role="status"></div>
+      
+<div id="scannedProductDetails" class="panel hidden" style="margin-top:12px;">
+  <h3>รายละเอียดสินค้าที่สแกน</h3>
+  <div id="scannedProductInfo"></div>
+</div>
+
 
         <button id="refreshBtn" class="secondary" type="button">รีเฟรช</button>
       </div>
@@ -712,6 +718,72 @@ let stockHtml5QrCode = null;
 let stockScannerRunning = false;
 let stockScanHandling = false;
 
+function showScannedProductDetails(barcode) {
+  const normalized = String(barcode || "").trim().toLowerCase();
+
+  const matches = productsData.filter(
+    p => String(p.barcode || "").trim().toLowerCase() === normalized
+  );
+
+  const panel = $("scannedProductDetails");
+  const info = $("scannedProductInfo");
+
+  if (matches.length !== 1) {
+    panel.classList.add("hidden");
+    info.innerHTML = "";
+    return;
+  }
+
+  const product = matches[0];
+
+  const balances = balanceData
+    .filter(b => b.product_id === product.id)
+    .map(balance => {
+      const location = locationsData.find(
+        l => l.id === balance.location_id
+      );
+
+      if (!location) return null;
+
+      return {
+        location: location.location_code,
+        floor: location.floor_no,
+        quantity: Number(balance.quantity || 0)
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.location.localeCompare(b.location));
+
+  const total = balances.reduce(
+    (sum, item) => sum + item.quantity, 0
+  );
+
+  info.innerHTML = `
+    <div style="display:grid;gap:8px;">
+      <div><strong>SKU:</strong> ${escapeHtml(product.sku)}</div>
+      <div><strong>ชื่อสินค้า:</strong> ${escapeHtml(product.product_name)}</div>
+      <div><strong>Barcode:</strong> ${escapeHtml(product.barcode || "-")}</div>
+      <div style="font-size:1.1rem;">
+        <strong>ยอดคงเหลือรวม:</strong> ${total.toLocaleString()} ชิ้น
+      </div>
+      <div style="margin-top:8px;"><strong>ตำแหน่งจัดเก็บ</strong></div>
+      ${
+        balances.length
+          ? balances.map(item => `
+              <div style="padding:10px;border:1px solid #ddd;border-radius:8px;">
+                <strong>${escapeHtml(item.location)}</strong>
+                <span> · ชั้น ${escapeHtml(item.floor)}</span>
+                <div>คงเหลือ ${item.quantity.toLocaleString()} ชิ้น</div>
+              </div>
+            `).join("")
+          : "<div>ไม่พบตำแหน่งจัดเก็บของสินค้านี้</div>"
+      }
+    </div>
+  `;
+
+  panel.classList.remove("hidden");
+}
+
 async function stopStockScanner() {
   if (stockHtml5QrCode) {
     try {
@@ -765,7 +837,8 @@ $("stockScanBtn").addEventListener("click", async () => {
 
         $("search").value = decodedText;
         $("search").dispatchEvent(new Event("input", { bubbles: true }));
-
+        showScannedProductDetails(decodedText);
+        
         await stopStockScanner();
 
         setStatus(
