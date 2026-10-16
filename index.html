@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Step2Thailand Stock Demo</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; }
@@ -123,6 +124,27 @@
 
       <form id="transactionForm">
         <div class="form-grid">
+          
+<div style="grid-column: 1 / -1;">
+  <label for="barcodeScanInput">สแกน Barcode สินค้า</label>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <input
+      id="barcodeScanInput"
+      type="text"
+      placeholder="สแกนหรือพิมพ์ Barcode"
+      autocomplete="off"
+    />
+    <button id="startScanBtn" type="button" style="width: auto;">
+      📷 เปิดกล้องสแกน
+    </button>
+    <button id="stopScanBtn" type="button" class="secondary hidden">
+      หยุดสแกน
+    </button>
+  </div>
+  <div id="reader" class="hidden" style="width: 100%; max-width: 420px; margin-top: 10px;"></div>
+  <div id="scanStatus" class="status" role="status"></div>
+</div>
+
           <div>
             <label for="transactionType">ประเภทธุรกรรม</label>
             <select id="transactionType" required>
@@ -342,6 +364,130 @@
     fillSelect('destinationLocation', sortedLocations, 'id', locationLabel, 'เลือกปลายทาง');
     updateTransactionFields();
   }
+
+  
+let html5QrCode = null;
+let scannerRunning = false;
+
+function findProductByBarcode(code) {
+  const normalized = String(code || "").trim().toLowerCase();
+
+  return productsData.find(
+    p => String(p.barcode || "").trim().toLowerCase() === normalized
+  );
+}
+
+function selectProductByBarcode(code) {
+  const normalized = String(code || "").trim();
+
+  if (!normalized) {
+    setStatus("scanStatus", "กรุณาสแกนหรือกรอก Barcode", true);
+    return false;
+  }
+
+  const matches = productsData.filter(
+    p => String(p.barcode || "").trim().toLowerCase() === normalized.toLowerCase()
+  );
+
+  if (matches.length === 0) {
+    setStatus("scanStatus", `ไม่พบสินค้า Barcode: ${normalized}`, true);
+    return false;
+  }
+
+  if (matches.length > 1) {
+    setStatus("scanStatus", "พบ Barcode ซ้ำในฐานข้อมูล กรุณาตรวจสอบข้อมูลสินค้า", true);
+    return false;
+  }
+
+  const product = matches[0];
+  $("transactionProduct").value = product.id;
+  $("barcodeScanInput").value = normalized;
+
+  setStatus(
+    "scanStatus",
+    `พบสินค้า ${product.sku} — ${product.product_name}`,
+    false
+  );
+
+  return true;
+}
+
+async function stopScanner() {
+  if (html5QrCode) {
+    try {
+      if (scannerRunning) {
+        await html5QrCode.stop();
+      }
+    } catch (error) {
+      console.warn("หยุดกล้อง:", error);
+    }
+
+    try {
+      await html5QrCode.clear();
+    } catch (error) {
+      console.warn("ปิดหน้าสแกน:", error);
+    }
+  }
+
+  html5QrCode = null;
+  scannerRunning = false;
+
+  $("reader").classList.add("hidden");
+  $("stopScanBtn").classList.add("hidden");
+  $("startScanBtn").classList.remove("hidden");
+}
+
+$("barcodeScanInput").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    selectProductByBarcode($("barcodeScanInput").value);
+  }
+});
+
+$("startScanBtn").addEventListener("click", async () => {
+  if (scannerRunning || html5QrCode) return;
+
+  if (!window.Html5Qrcode) {
+    setStatus("scanStatus", "โหลดระบบสแกนไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ", true);
+    return;
+  }
+
+  $("reader").classList.remove("hidden");
+  $("startScanBtn").classList.add("hidden");
+  $("stopScanBtn").classList.remove("hidden");
+  setStatus("scanStatus", "กำลังเปิดกล้อง กรุณาอนุญาตให้เว็บไซต์ใช้กล้อง");
+
+  html5QrCode = new Html5Qrcode("reader");
+
+  try {
+    await html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      async decodedText => {
+        const found = selectProductByBarcode(decodedText);
+
+        if (found) {
+          await stopScanner();
+        }
+      },
+      () => {}
+    );
+
+    scannerRunning = true;
+    setStatus("scanStatus", "เปิดกล้องแล้ว กรุณาหันกล้องไปที่ Barcode สินค้า");
+  } catch (error) {
+    console.error("เปิดกล้องไม่สำเร็จ:", error);
+    setStatus(
+      "scanStatus",
+      "เปิดกล้องไม่สำเร็จ กรุณาอนุญาตใช้กล้องและลองใหม่",
+      true
+    );
+    await stopScanner();
+  }
+});
+
+$("stopScanBtn").addEventListener("click", stopScanner);
+
 
   function updateTransactionFields() {
     const type = $('transactionType').value;
