@@ -920,6 +920,13 @@ $('loginForm').addEventListener('submit', async event => {
   }
 });
 
+$('logoutBtn').addEventListener('click', async () => {
+  const { error } = await db.auth.signOut();
+
+  if (error) {
+    setStatus('loginStatus', 'ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง', true);
+  }
+});
 
   $('transactionType').addEventListener('change', updateTransactionFields);
   $('search').addEventListener('input', renderStock);
