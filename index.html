@@ -486,8 +486,15 @@
     const type = $('transactionType').value;
     const productId = $('transactionProduct').value;
     const quantity = Number($('quantity').value);
-    const sourceId = $('sourceLocation').value || null;
-    const destinationId = $('destinationLocation').value || null;
+    const sourceId =
+  (type === 'OUT' || type === 'MOVE')
+    ? ($('sourceLocation').value || null)
+    : null;
+
+const destinationId =
+  (type === 'IN' || type === 'MOVE')
+    ? ($('destinationLocation').value || null)
+    : null;
     const notes = $('notes').value.trim() || null;
 
     if (!productId || !Number.isSafeInteger(quantity) || quantity <= 0) {
