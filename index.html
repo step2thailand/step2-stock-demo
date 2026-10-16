@@ -808,31 +808,83 @@ db.from('products')
     await loadHistory(version);
   }
 
-  async function applySession(session) {
-    const nextUserId = session?.user?.id || null;
-    if (nextUserId === currentUserId) return;
+  
+async function applySession(session) {
+  const nextUserId = session?.user?.id || null;
+  if (nextUserId === currentUserId) return;
 
-    currentUserId = nextUserId;
-    authVersion++;
-    const version = authVersion;
+  currentUserId = nextUserId;
+  authVersion++;
+  const version = authVersion;
 
-    $('loginSection').classList.toggle('hidden', !!currentUserId);
-    $('stockSection').classList.toggle('hidden', !currentUserId);
-    $('logoutBtn').classList.toggle('hidden', !currentUserId);
+  $('loginSection').classList.toggle('hidden', !!currentUserId);
+  $('stockSection').classList.toggle('hidden', !currentUserId);
+  $('logoutBtn').classList.toggle('hidden', !currentUserId);
 
-    if (currentUserId) {
-      setStatus('loginStatus', '');
+  if (currentUserId) {
+    setStatus('loginStatus', '');
+
+    try {
+      const { data, error } = await db.rpc('is_app_admin');
+
+      if (error) throw error;
+      if (version !== authVersion) return;
+
+      window.isAppAdmin = data === true;
+
+      const productManagementSection =
+        $('productManagementSection');
+
+      if (productManagementSection) {
+        productManagementSection.classList.toggle(
+          'hidden',
+          !window.isAppAdmin
+        );
+      }
+
       await loadData(version);
       await loadHistory(version);
-    } else {
-      productsData = [];
-      locationsData = [];
-      balanceData = [];
-      historyData = [];
-      $('products').innerHTML = '';
-      $('historyRows').innerHTML = '';
+    } catch (error) {
+      if (version !== authVersion) return;
+
+      window.isAppAdmin = false;
+
+      const productManagementSection =
+        $('productManagementSection');
+
+      if (productManagementSection) {
+        productManagementSection.classList.add('hidden');
+      }
+
+      setStatus(
+        'loginStatus',
+        'ตรวจสอบสิทธิ์ไม่สำเร็จ: ' + error.message,
+        true
+      );
+
+      await loadData(version);
+      await loadHistory(version);
     }
+  } else {
+    window.isAppAdmin = false;
+
+    const productManagementSection =
+      $('productManagementSection');
+
+    if (productManagementSection) {
+      productManagementSection.classList.add('hidden');
+    }
+
+    productsData = [];
+    locationsData = [];
+    balanceData = [];
+    historyData = [];
+
+    $('products').innerHTML = '';
+    $('historyRows').innerHTML = '';
   }
+}
+
 
   $('loginForm').addEventListener('submit', async event => {
     event.preventDefault();
