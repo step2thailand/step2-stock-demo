@@ -184,14 +184,23 @@
 
     <section class="panel">
       <h2>ยอดสต๊อกสินค้า</h2>
-      <div class="toolbar">
-        <input id="search" type="search"
-          placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode">
-        <select id="floor">
-          <option value="">ทุกชั้น</option>
-          <option value="1">ชั้น 1</option>
-          <option value="2">ชั้น 2</option>
-        </select>
+      
+<div class="toolbar">
+  <input id="search" type="search"
+    placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode">
+  <button id="stockScanBtn" type="button" style="width:auto;">
+    📷 สแกน Barcode
+  </button>
+  <select id="floor">
+    <option value="">ทุกชั้น</option>
+    <option value="1">ชั้น 1</option>
+    <option value="2">ชั้น 2</option>
+  </select>
+</div>
+<div id="stockScanReader" class="hidden"
+  style="width:100%; max-width:420px; margin-top:12px;"></div>
+<div id="stockScanStatus" class="status" role="status"></div>
+
         <button id="refreshBtn" class="secondary" type="button">รีเฟรช</button>
       </div>
       <div id="status" class="status" role="status"></div>
@@ -697,6 +706,84 @@ const destinationId =
       $('submitTransaction').disabled = false;
     }
   });
+
+  
+let stockHtml5QrCode = null;
+let stockScannerRunning = false;
+let stockScanHandling = false;
+
+async function stopStockScanner() {
+  if (stockHtml5QrCode) {
+    try {
+      if (stockScannerRunning) {
+        await stockHtml5QrCode.stop();
+      }
+    } catch (error) {
+      console.warn("หยุดกล้องค้นหาสต็อก:", error);
+    }
+
+    try {
+      await stockHtml5QrCode.clear();
+    } catch (error) {
+      console.warn("ปิดหน้าสแกนสต็อก:", error);
+    }
+  }
+
+  stockHtml5QrCode = null;
+  stockScannerRunning = false;
+  stockScanHandling = false;
+
+  $("stockScanReader").classList.add("hidden");
+  $("stockScanBtn").textContent = "📷 สแกน Barcode";
+}
+
+$("stockScanBtn").addEventListener("click", async () => {
+  if (stockScannerRunning || stockHtml5QrCode) {
+    await stopStockScanner();
+    setStatus("stockScanStatus", "ปิดกล้องแล้ว");
+    return;
+  }
+
+  if (!window.Html5Qrcode) {
+    setStatus("stockScanStatus", "โหลดระบบสแกนไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ", true);
+    return;
+  }
+
+  $("stockScanReader").classList.remove("hidden");
+  $("stockScanBtn").textContent = "หยุดสแกน";
+  setStatus("stockScanStatus", "กำลังเปิดกล้อง กรุณาอนุญาตให้ใช้กล้อง");
+
+  stockHtml5QrCode = new Html5Qrcode("stockScanReader");
+
+  try {
+    await stockHtml5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      async decodedText => {
+        if (stockScanHandling) return;
+        stockScanHandling = true;
+
+        $("search").value = decodedText;
+        $("search").dispatchEvent(new Event("input", { bubbles: true }));
+
+        await stopStockScanner();
+
+        setStatus(
+          "stockScanStatus",
+          `สแกนได้แล้ว: ${decodedText} — ตรวจสอบผลในตารางสต็อก`
+        );
+      },
+      () => {}
+    );
+
+    stockScannerRunning = true;
+    setStatus("stockScanStatus", "เปิดกล้องแล้ว กรุณาหันกล้องไปที่ Barcode");
+  } catch (error) {
+    console.error("เปิดกล้องค้นหาสต็อกไม่สำเร็จ:", error);
+    setStatus("stockScanStatus", "เปิดกล้องไม่สำเร็จ กรุณาตรวจสอบสิทธิ์กล้อง", true);
+    await stopStockScanner();
+  }
+});
 
   db.auth.onAuthStateChange((_event, session) => {
     setTimeout(() => applySession(session), 0);
