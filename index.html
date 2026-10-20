@@ -1014,11 +1014,16 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     const type = $('transactionType').value;
     const needsSource = type === 'OUT' || type === 'MOVE';
     const needsDestination = type === 'IN' || type === 'MOVE';
+    const isWithdrawalWizard = document.body.classList.contains('withdrawal-modal-active');
 
-    $('sourceField').classList.toggle('hidden', !needsSource);
-    $('destinationField').classList.toggle('hidden', !needsDestination);
-    $('sourceLocation').required = needsSource;
-    $('destinationLocation').required = needsDestination;
+    // While the OUT wizard is open, only setWithdrawalStep controls field visibility.
+    // Refreshing product options after a scan must not reveal the Location field early.
+    if (!isWithdrawalWizard) {
+      $('sourceField').classList.toggle('hidden', !needsSource);
+      $('destinationField').classList.toggle('hidden', !needsDestination);
+    }
+    $('sourceLocation').required = isWithdrawalWizard ? withdrawalStep === 3 : needsSource;
+    $('destinationLocation').required = isWithdrawalWizard ? false : needsDestination;
     updateSourceLocationOptions();
     updateTransactionPreview();
   }
