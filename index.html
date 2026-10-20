@@ -85,6 +85,15 @@
       .form-grid { grid-template-columns: 1fr; }
       h1 { font-size: 21px; }
     }
+  .product-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+  .product-card { border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#fff; min-width:0; }
+  .product-card img { width:100%; height:150px; object-fit:contain; background:#f8fafc; border-radius:8px; }
+  .product-card-name { font-weight:bold; margin:8px 0 4px; overflow-wrap:anywhere; }
+  .product-card-meta { color:#64748b; font-size:13px; overflow-wrap:anywhere; }
+  .transaction-preview { border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-top:14px; background:#f8fafc; }
+  .transaction-preview img { width:100px; height:100px; object-fit:contain; background:white; border-radius:8px; }
+  .preview-layout { display:flex; gap:12px; align-items:flex-start; }
+  @media (max-width:600px) { .preview-layout { flex-direction:column; } }
   </style>
 </head>
 <body>
@@ -123,9 +132,10 @@
         <button type="button" class="menu-issue" data-warehouse-action="OUT">เบิกสินค้า</button>
         <button type="button" class="menu-stock" data-warehouse-action="STOCK">ตรวจสอบสต๊อก</button>
         <button type="button" class="menu-move" data-warehouse-action="MOVE">ย้ายตำแหน่ง</button>
-        <button type="button" class="menu-products" data-warehouse-action="PRODUCTS">รายการสินค้า</button>
+        <button type="button" class="menu-products" data-warehouse-action="PRODUCTS">รายการสินค้าทั้งหมด</button>
+        <button type="button" class="menu-add-product" data-warehouse-action="ADD_PRODUCT">เพิ่มสินค้า (Admin)</button>
         <button type="button" class="menu-receive" data-warehouse-action="IN">รับสินค้าเข้า</button>
-        <button type="button" class="menu-history" data-warehouse-action="HISTORY">ประวัติรายการ</button>
+        <button type="button" class="menu-history" data-warehouse-action="HISTORY">ประวัติทำรายการ</button>
       </div>
     </section>
 
@@ -182,7 +192,9 @@
             </select>
           </div>
           <div>
-            <label for="transactionProduct">สินค้า</label>
+            <label for="transactionProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
+            <input id="transactionProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า">
+            <label for="transactionProduct" style="margin-top:8px;">เลือกสินค้า</label>
             <select id="transactionProduct" required></select>
           </div>
           <div>
@@ -203,6 +215,7 @@
               placeholder="เช่น รับสินค้าจากซัพพลายเออร์">
           </div>
         </div>
+        <div id="transactionPreview" class="transaction-preview hidden" aria-live="polite"></div>
         <div class="submit-row">
           <button id="submitTransaction" type="submit">ยืนยันรายการ</button>
         </div>
@@ -210,6 +223,14 @@
       </form>
     </section>
 
+
+<section class="panel" id="productCatalogPanel">
+  <h2>รายการสินค้าทั้งหมด</h2>
+  <p class="muted">ค้นหาสินค้าด้วย SKU, ชื่อสินค้า หรือ Barcode</p>
+  <div class="toolbar"><input id="catalogSearch" type="search" placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode"></div>
+  <div id="catalogStatus" class="status" role="status"></div>
+  <div id="productCatalogGrid" class="product-catalog-grid"></div>
+</section>
 
 <section id="productManagementSection" class="panel">
 
@@ -489,6 +510,20 @@
   }
 
 
+function renderProductCatalog() {
+  const search = $('catalogSearch').value.trim().toLowerCase();
+  const filtered = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(search));
+  $('productCatalogGrid').innerHTML = filtered.length ? filtered.map(p =>
+    '<article class="product-card">' +
+    (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
+    '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div>' +
+    '<div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
+    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div>' +
+    '<div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
+  ).join('') : '<p class="muted">ไม่พบสินค้า</p>';
+  setStatus('catalogStatus', 'แสดง ' + filtered.length + ' รายการสินค้า');
+}
+
 function renderProductManagement() {
   const search = $('productManageSearch').value.trim().toLowerCase();
 
@@ -592,7 +627,8 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
 }
   
 function fillTransactionSelects() {
-  const activeProducts = productsData.filter(p => p.is_active === true);
+  const term = $('transactionProductSearch').value.trim().toLowerCase();
+  const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
 
   fillSelect(
     'transactionProduct',
@@ -785,6 +821,31 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     }
   }
 
+  function updateTransactionPreview() {
+    const panel = $('transactionPreview');
+    const type = $('transactionType').value;
+    const product = productsData.find(p => p.id === $('transactionProduct').value);
+    if (!product || type !== 'OUT') { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    const sourceId = $('sourceLocation').value;
+    const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
+    const current = Number(row?.quantity || 0);
+    const rawQty = $('quantity').value;
+    const qty = Number(rawQty);
+    const valid = !!sourceId && Number.isSafeInteger(qty) && qty > 0 && qty <= current;
+    const remaining = valid ? current - qty : null;
+    panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนเบิก</h3><div class="preview-layout">' +
+      (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
+      '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div>' +
+      '<div>SKU: ' + escapeHtml(product.sku) + '</div>' +
+      '<div>Location: ' + escapeHtml(locationName(sourceId)) + '</div>' +
+      '<div>คงเหลือปัจจุบัน: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+      '<div>จำนวนที่เบิก: ' + (rawQty ? escapeHtml(rawQty) : '—') + '</div>' +
+      '<div><strong>คงเหลือหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดคงเหลือ' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
+      (rawQty && Number.isSafeInteger(qty) && qty > current ? '<div class="error">จำนวนที่เบิกเกินยอดคงเหลือ</div>' : '') +
+      '</div></div>';
+    panel.classList.remove('hidden');
+  }
+
   function updateTransactionFields() {
     const type = $('transactionType').value;
     const needsSource = type === 'OUT' || type === 'MOVE';
@@ -795,6 +856,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     $('sourceLocation').required = needsSource;
     $('destinationLocation').required = needsDestination;
     updateSourceLocationOptions();
+    updateTransactionPreview();
   }
 
   async function loadData(version) {
@@ -825,6 +887,7 @@ db.from('products')
     locationsData = lRes.data || [];
     balanceData = bRes.data || [];
     renderStock();
+    renderProductCatalog();
     fillTransactionSelects();
     setStatus('status', 'โหลดข้อมูลสต๊อกแล้ว');
   }
@@ -898,12 +961,8 @@ async function applySession(session) {
       const productManagementSection =
         $('productManagementSection');
 
-      if (productManagementSection) {
-        productManagementSection.classList.toggle(
-          'hidden',
-          !window.isAppAdmin
-        );
-      }
+      if (productManagementSection) productManagementSection.classList.toggle('hidden', !window.isAppAdmin);
+      $('warehouseMenu').querySelector('[data-warehouse-action="ADD_PRODUCT"]').classList.toggle('hidden', !window.isAppAdmin);
 
       await loadData(version);
       await loadHistory(version);
@@ -915,9 +974,8 @@ async function applySession(session) {
       const productManagementSection =
         $('productManagementSection');
 
-      if (productManagementSection) {
-        productManagementSection.classList.add('hidden');
-      }
+      if (productManagementSection) productManagementSection.classList.add('hidden');
+      $('warehouseMenu').querySelector('[data-warehouse-action="ADD_PRODUCT"]').classList.add('hidden');
 
       setStatus(
         'loginStatus',
@@ -988,7 +1046,6 @@ $('logoutBtn').addEventListener('click', async () => {
 });
 
   $('transactionType').addEventListener('change', updateTransactionFields);
-  $('transactionProduct').addEventListener('change', updateSourceLocationOptions);
 
   $('warehouseMenu').querySelectorAll('[data-warehouse-action]').forEach(button => {
     button.addEventListener('click', () => {
@@ -1003,12 +1060,20 @@ $('logoutBtn').addEventListener('click', async () => {
       }
 
       if (action === 'PRODUCTS') {
-        const section = $('productManagementSection');
-        if (section.classList.contains('hidden')) {
-          setStatus('loginStatus', 'เมนูจัดการสินค้าเปิดได้เฉพาะผู้ดูแลระบบ', true);
+        $('catalogSearch').value = '';
+        renderProductCatalog();
+        $('productCatalogPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('catalogSearch').focus();
+        return;
+      }
+
+      if (action === 'ADD_PRODUCT') {
+        if (!window.isAppAdmin) {
+          setStatus('loginStatus', 'เมนูเพิ่มสินค้าเปิดได้เฉพาะผู้ดูแลระบบ', true);
           return;
         }
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('productManagementSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('addProductBtn').click();
         return;
       }
 
@@ -1029,6 +1094,11 @@ $('logoutBtn').addEventListener('click', async () => {
     });
   });
 
+  $('catalogSearch').addEventListener('input', renderProductCatalog);
+  $('transactionProductSearch').addEventListener('input', () => { fillTransactionSelects(); updateTransactionPreview(); });
+  $('transactionProduct').addEventListener('change', () => { updateSourceLocationOptions(); updateTransactionPreview(); });
+  $('sourceLocation').addEventListener('change', updateTransactionPreview);
+  $('quantity').addEventListener('input', updateTransactionPreview);
   $('search').addEventListener('input', renderStock);
   $('floor').addEventListener('change', renderStock);
   $('refreshBtn').addEventListener('click', refreshAll);
