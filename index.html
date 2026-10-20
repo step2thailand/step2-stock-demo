@@ -847,9 +847,12 @@ function selectProductByBarcode(code) {
   }
 
   const product = matches[0];
-  $("transactionProductSearch").value = product.sku + " — " + product.product_name;
+  // Use SKU as the filter term so fillTransactionSelects keeps the product option.
+  // The selected-product preview displays both SKU and product name after selection.
+  $("transactionProductSearch").value = product.sku;
   fillTransactionSelects();
   $("transactionProduct").value = product.id;
+  $("productPickerResults").classList.add("hidden");
   renderSelectedProductPreview();
   updateSourceLocationOptions();
   updateTransactionPreview();
