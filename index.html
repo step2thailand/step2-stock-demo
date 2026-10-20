@@ -736,7 +736,9 @@ function renderProductPickerResults() {
       const productId = button.getAttribute('data-picker-product');
       const product = productsData.find(p => p.id === productId && p.is_active === true);
       if (!product) return;
-      $('transactionProductSearch').value = product.sku + ' — ' + product.product_name;
+      // Keep the filter value as SKU only; the formatted label would not match
+      // the searchable SKU/name/Barcode fields and would clear the product option.
+      $('transactionProductSearch').value = product.sku;
       fillTransactionSelects();
       $('transactionProduct').value = product.id;
       results.classList.add('hidden');
@@ -820,35 +822,37 @@ function selectProductByBarcode(code) {
   const normalized = String(code || "").trim();
 
   if (!normalized) {
-    setStatus("scanStatus", "กรุณาสแกนหรือกรอก Barcode", true);
+    setStatus("scanStatus", "กรุณาสแกน Barcode หรือกรอก SKU สินค้า", true);
     return false;
   }
 
-  const barcodeMatches = productsData.filter(
-    p => String(p.barcode || "").trim().toLowerCase() === normalized.toLowerCase()
+  // Accept either an exact Barcode or an exact SKU when entered manually.
+  const searchValue = normalized.toLowerCase();
+  const exactMatches = productsData.filter(p =>
+    String(p.barcode || "").trim().toLowerCase() === searchValue ||
+    String(p.sku || "").trim().toLowerCase() === searchValue
   );
-  const matches = barcodeMatches.filter(p => p.is_active === true);
+  const matches = exactMatches.filter(p => p.is_active === true);
 
   if (matches.length === 0) {
-    const hasInactiveMatch = barcodeMatches.some(p => p.is_active !== true);
+    const hasInactiveMatch = exactMatches.some(p => p.is_active !== true);
     setStatus(
       "scanStatus",
       hasInactiveMatch
-        ? `สินค้า Barcode: ${normalized} ถูกปิดใช้งาน ไม่สามารถทำรายการได้`
-        : `ไม่พบสินค้า Barcode: ${normalized}`,
+        ? `สินค้า SKU/Barcode: ${normalized} ถูกปิดใช้งาน ไม่สามารถทำรายการได้`
+        : `ไม่พบสินค้า SKU/Barcode: ${normalized}`,
       true
     );
     return false;
   }
 
   if (matches.length > 1) {
-    setStatus("scanStatus", "พบ Barcode ซ้ำในฐานข้อมูล กรุณาตรวจสอบข้อมูลสินค้า", true);
+    setStatus("scanStatus", "พบ SKU/Barcode ซ้ำในฐานข้อมูล กรุณาตรวจสอบข้อมูลสินค้า", true);
     return false;
   }
 
   const product = matches[0];
-  // Use SKU as the filter term so fillTransactionSelects keeps the product option.
-  // The selected-product preview displays both SKU and product name after selection.
+  // Keep the search term to SKU only so the product remains in the filtered select.
   $("transactionProductSearch").value = product.sku;
   fillTransactionSelects();
   $("transactionProduct").value = product.id;
@@ -856,7 +860,8 @@ function selectProductByBarcode(code) {
   renderSelectedProductPreview();
   updateSourceLocationOptions();
   updateTransactionPreview();
-  $("barcodeScanInput").value = normalized;
+  // Normalize the manual entry to the product SKU after successful selection.
+  $("barcodeScanInput").value = product.sku;
 
   setStatus(
     "scanStatus",
