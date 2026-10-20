@@ -109,6 +109,16 @@
   .product-card img { width:100%; height:150px; object-fit:contain; background:#f8fafc; border-radius:8px; }
   .product-card-name { font-weight:bold; margin:8px 0 4px; overflow-wrap:anywhere; }
   .product-card-meta { color:#64748b; font-size:13px; overflow-wrap:anywhere; }
+  .product-picker-results { margin-top:6px; border:1px solid #cbd5e1; border-radius:9px; overflow:hidden; max-height:280px; overflow-y:auto; background:#fff; }
+  .product-picker-option { display:flex; align-items:center; gap:10px; width:100%; padding:8px; border:0; border-bottom:1px solid #e5e7eb; border-radius:0; background:#fff; color:#253247; text-align:left; font-weight:400; }
+  .product-picker-option:last-child { border-bottom:0; }
+  .product-picker-option:hover, .product-picker-option:focus { background:#f1f5f9; }
+  .product-picker-option img, .product-picker-thumb { flex:0 0 48px; width:48px; height:48px; border-radius:6px; object-fit:contain; background:#f1f5f9; }
+  .product-picker-details { min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .product-picker-sku { font-size:12px; color:#64748b; overflow-wrap:anywhere; }
+  .product-picker-name { font-weight:700; overflow-wrap:anywhere; }
+  .selected-product-preview { display:flex; align-items:center; gap:10px; margin-top:8px; padding:8px; border:1px solid #dbeafe; border-radius:9px; background:#eff6ff; }
+  .selected-product-preview img, .selected-product-preview .product-picker-thumb { width:48px; height:48px; object-fit:contain; border-radius:6px; background:white; flex:0 0 48px; }
   .transaction-preview { border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-top:14px; background:#f8fafc; }
   .transaction-preview img { width:100px; height:100px; object-fit:contain; background:white; border-radius:8px; }
   .preview-layout { display:flex; gap:12px; align-items:flex-start; }
@@ -214,9 +224,11 @@
           </div>
           <div>
             <label for="transactionProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
-            <input id="transactionProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า">
-            <label for="transactionProduct" style="margin-top:8px;">เลือกสินค้า</label>
+            <input id="transactionProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า" autocomplete="off">
+            <div id="productPickerResults" class="product-picker-results hidden" role="listbox" aria-label="ผลการค้นหาสินค้า"></div>
+            <label for="transactionProduct" style="margin-top:8px;">เลือกสินค้าที่ต้องการ</label>
             <select id="transactionProduct" required></select>
+            <div id="selectedProductPreview" class="selected-product-preview hidden" aria-live="polite"></div>
           </div>
           <div>
             <label for="quantity">จำนวน</label>
@@ -665,6 +677,58 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
   });
 }
   
+function renderProductPickerResults() {
+  const input = $('transactionProductSearch');
+  const results = $('productPickerResults');
+  const term = input.value.trim().toLowerCase();
+  const activeProducts = productsData.filter(p => p.is_active === true &&
+    [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
+  const currentId = $('transactionProduct').value;
+  const shownProducts = term ? activeProducts : activeProducts.slice(0, 20);
+
+  results.innerHTML = shownProducts.length ? shownProducts.map(p =>
+    '<button type="button" class="product-picker-option" role="option" aria-selected="' + (p.id === currentId) + '" data-picker-product="' + escapeHtml(p.id) + '">' +
+      (p.image_url
+        ? '<img src="' + escapeHtml(p.image_url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+        : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+      '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(p.sku) + '</span>' +
+      '<span class="product-picker-name">' + escapeHtml(p.product_name) + '</span>' +
+      '<span class="product-picker-sku">Barcode: ' + escapeHtml(p.barcode || '—') + '</span></span></button>'
+  ).join('') : '<div class="muted" style="padding:12px;">ไม่พบสินค้า</div>';
+
+  results.classList.remove('hidden');
+  results.querySelectorAll('[data-picker-product]').forEach(button => {
+    button.addEventListener('click', () => {
+      const productId = button.getAttribute('data-picker-product');
+      const product = productsData.find(p => p.id === productId && p.is_active === true);
+      if (!product) return;
+      $('transactionProductSearch').value = product.sku + ' — ' + product.product_name;
+      fillTransactionSelects();
+      $('transactionProduct').value = product.id;
+      results.classList.add('hidden');
+      renderSelectedProductPreview();
+      updateSourceLocationOptions();
+      updateTransactionPreview();
+    });
+  });
+}
+
+function renderSelectedProductPreview() {
+  const panel = $('selectedProductPreview');
+  const product = productsData.find(p => p.id === $('transactionProduct').value && p.is_active === true);
+  if (!product) {
+    panel.classList.add('hidden');
+    panel.innerHTML = '';
+    return;
+  }
+  panel.innerHTML = (product.image_url
+    ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">'
+    : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+    '<span class="product-picker-details"><span class="product-picker-sku">เลือกสินค้าแล้ว · ' + escapeHtml(product.sku) + '</span>' +
+    '<span class="product-picker-name">' + escapeHtml(product.product_name) + '</span></span>';
+  panel.classList.remove('hidden');
+}
+
 function fillTransactionSelects() {
   const term = $('transactionProductSearch').value.trim().toLowerCase();
   const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
@@ -676,6 +740,7 @@ function fillTransactionSelects() {
     p => `${p.sku} — ${p.product_name}`,
     'เลือกสินค้า'
   );
+  renderSelectedProductPreview();
 
   const sortedLocations = [...locationsData].sort((a, b) =>
     a.location_code.localeCompare(b.location_code)
@@ -748,7 +813,7 @@ function selectProductByBarcode(code) {
   }
 
   const product = matches[0];
-  $("transactionProductSearch").value = product.sku;
+  $("transactionProductSearch").value = product.sku + " — " + product.product_name;
   fillTransactionSelects();
   $("transactionProduct").value = product.id;
   updateSourceLocationOptions();
@@ -1164,6 +1229,8 @@ $('logoutBtn').addEventListener('click', async () => {
       if (action === 'OUT') {
         // Start every withdrawal with a clean form so a previous transaction is not reused accidentally.
         $('transactionProductSearch').value = '';
+        $('productPickerResults').classList.add('hidden');
+        $('selectedProductPreview').classList.add('hidden');
         $('barcodeScanInput').value = '';
         $('transactionProduct').value = '';
         $('quantity').value = '';
@@ -1189,8 +1256,22 @@ $('logoutBtn').addEventListener('click', async () => {
   });
 
   $('catalogSearch').addEventListener('input', renderProductCatalog);
-  $('transactionProductSearch').addEventListener('input', () => { fillTransactionSelects(); updateTransactionPreview(); });
-  $('transactionProduct').addEventListener('change', () => { updateSourceLocationOptions(); updateTransactionPreview(); });
+  $('transactionProductSearch').addEventListener('input', () => {
+    fillTransactionSelects();
+    renderProductPickerResults();
+    updateTransactionPreview();
+  });
+  $('transactionProductSearch').addEventListener('focus', renderProductPickerResults);
+  $('transactionProduct').addEventListener('change', () => {
+    renderSelectedProductPreview();
+    updateSourceLocationOptions();
+    updateTransactionPreview();
+  });
+  document.addEventListener('click', event => {
+    if (!event.target.closest('#transactionProductSearch') && !event.target.closest('#productPickerResults')) {
+      $('productPickerResults').classList.add('hidden');
+    }
+  });
   $('sourceLocation').addEventListener('change', updateTransactionPreview);
   $('quantity').addEventListener('input', updateTransactionPreview);
   $('search').addEventListener('input', renderStock);
