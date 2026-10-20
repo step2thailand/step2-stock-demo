@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Step2Thailand Stock Demo</title>
+  <title>WANGANUBAL INVENTORY</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -67,10 +67,19 @@
     .muted { color: #64748b; font-size: 13px; }
     .warehouse-menu { margin-bottom: 18px; }
     .warehouse-menu-grid {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
-    .warehouse-menu button { min-height: 58px; white-space: normal; }
+    .warehouse-menu button {
+      min-height: 78px; white-space: normal; display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 5px; padding: 12px 10px; line-height: 1.3; text-align: center;
+    }
+    .warehouse-menu button .menu-title { font-weight: 700; }
+    .warehouse-menu button .menu-description { font-size: 12px; font-weight: 400; opacity: .95; }
+    .warehouse-menu button[data-warehouse-action="HISTORY"] { grid-column: 1 / -1; min-height: 58px; }
+    .dashboard-metrics { margin-top: 18px; margin-bottom: 22px; }
+    .dashboard-metrics h2 { margin: 0 0 12px; }
     .menu-issue { background: #dc2626; }
     .menu-stock { background: #2563eb; }
     .menu-move { background: #7c3aed; }
@@ -78,12 +87,20 @@
     .menu-receive { background: #15803d; }
     .menu-history { background: #475569; }
     @media (max-width: 700px) {
-      .warehouse-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       body { padding: 12px; }
+      header { align-items: flex-start; }
+      h1 { font-size: 20px; line-height: 1.25; }
+      .panel { padding: 14px; margin-bottom: 14px; }
+      .warehouse-menu { margin-bottom: 0; }
+      .warehouse-menu-grid { gap: 8px; }
+      .warehouse-menu button { min-height: 76px; padding: 10px 7px; font-size: 14px; }
+      .warehouse-menu button .menu-description { font-size: 11px; }
+      .dashboard-metrics { margin-top: 14px; }
       .metrics { grid-template-columns: 1fr; gap: 8px; }
-      .metric { margin-bottom: 0; }
+      .metric { margin-bottom: 0; padding: 13px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .metric-label { font-size: 13px; }
+      .metric-value { font-size: 23px; margin-top: 0; }
       .form-grid { grid-template-columns: 1fr; }
-      h1 { font-size: 21px; }
     }
   .product-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
   .product-card { border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#fff; min-width:0; }
@@ -100,7 +117,7 @@
 <div class="container">
 
   <header>
-    <h1>Step2Thailand Stock Demo</h1>
+    <h1>WANGANUBAL INVENTORY</h1>
     <button id="logoutBtn" class="secondary hidden" type="button">
       ออกจากระบบ
     </button>
@@ -127,19 +144,20 @@
   <section id="stockSection" class="hidden">
     <section class="panel warehouse-menu" id="warehouseMenu">
       <h2>เมนูงานคลังสินค้า</h2>
-      <p class="muted">เลือกงานที่ต้องการทำ ระบบจะพาไปยังแบบฟอร์มที่เกี่ยวข้อง</p>
       <div class="warehouse-menu-grid">
-        <button type="button" class="menu-issue" data-warehouse-action="OUT">เบิกสินค้า</button>
-        <button type="button" class="menu-stock" data-warehouse-action="STOCK">ตรวจสอบสต๊อก</button>
-        <button type="button" class="menu-move" data-warehouse-action="MOVE">ย้ายตำแหน่ง</button>
-        <button type="button" class="menu-products" data-warehouse-action="PRODUCTS">รายการสินค้าทั้งหมด</button>
-        <button type="button" class="menu-add-product" data-warehouse-action="ADD_PRODUCT">เพิ่มสินค้า (Admin)</button>
-        <button type="button" class="menu-receive" data-warehouse-action="IN">รับสินค้าเข้า</button>
-        <button type="button" class="menu-history" data-warehouse-action="HISTORY">ประวัติทำรายการ</button>
+        <button type="button" class="menu-issue" data-warehouse-action="OUT"><span class="menu-title">เบิกสินค้า</span><span class="menu-description">ตัดสต๊อกสินค้า</span></button>
+        <button type="button" class="menu-stock" data-warehouse-action="STOCK"><span class="menu-title">ตรวจสอบสต๊อก</span><span class="menu-description">ตรวจสอบยอดคงเหลือ</span></button>
+        <button type="button" class="menu-move" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
+        <button type="button" class="menu-products" data-warehouse-action="PRODUCTS"><span class="menu-title">รายการสินค้า</span><span class="menu-description">ดูสินค้าทั้งหมด</span></button>
+        <button type="button" class="menu-add-product" data-warehouse-action="ADD_PRODUCT"><span class="menu-title">เพิ่มสินค้า (Admin)</span><span class="menu-description">เพิ่มสินค้าใหม่เข้าระบบ</span></button>
+        <button type="button" class="menu-receive" data-warehouse-action="IN"><span class="menu-title">รับสินค้าเข้า</span><span class="menu-description">เพิ่มสต๊อกสินค้า</span></button>
+        <button type="button" class="menu-history" data-warehouse-action="HISTORY"><span class="menu-title">ประวัติทำรายการ</span></button>
       </div>
     </section>
 
-    <div class="metrics">
+    <section class="dashboard-metrics" id="dashboardMetrics">
+      <h2>Dashboard สรุปคลังสินค้า</h2>
+      <div class="metrics">
       <div class="metric">
         <div class="metric-label">จำนวน SKU</div>
         <div id="skuCount" class="metric-value">0</div>
@@ -152,7 +170,8 @@
         <div class="metric-label">จำนวน Location</div>
         <div id="locationCount" class="metric-value">0</div>
       </div>
-    </div>
+      </div>
+    </section>
 
     <section class="panel">
       <h2>ทำรายการสต๊อก</h2>
