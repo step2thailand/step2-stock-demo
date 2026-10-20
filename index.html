@@ -357,7 +357,8 @@
               <th>ชื่อสินค้า</th>
               <th>Location</th>
               <th>ชั้น</th>
-              <th>จำนวน</th>
+              <th>จำนวนใน Location</th>
+              <th>ยอดรวมทุก Location</th>
             </tr>
           </thead>
           <tbody id="products"></tbody>
@@ -465,15 +466,29 @@
       a.location.localeCompare(b.location)
     );
 
+    // Total for each SKU across all active locations, independent of the floor filter.
+    const totalByProduct = new Map();
+    for (const balance of balanceData) {
+      totalByProduct.set(
+        balance.product_id,
+        (totalByProduct.get(balance.product_id) || 0) + Number(balance.quantity || 0)
+      );
+    }
+
     $('products').innerHTML = rows.length
-      ? rows.map(r => `<tr>
-          <td>${escapeHtml(r.sku)}</td>
-          <td>${escapeHtml(r.name)}</td>
-          <td>${escapeHtml(r.location)}</td>
-          <td>${escapeHtml(r.floor)}</td>
-          <td>${escapeHtml(r.quantity)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="5">ไม่พบข้อมูลสต๊อก</td></tr>';
+      ? rows.map(r => {
+          const product = productsData.find(p => p.sku === r.sku);
+          const total = product ? (totalByProduct.get(product.id) || 0) : 0;
+          return `<tr>
+            <td>${escapeHtml(r.sku)}</td>
+            <td>${escapeHtml(r.name)}</td>
+            <td>${escapeHtml(r.location)}</td>
+            <td>${escapeHtml(r.floor)}</td>
+            <td>${escapeHtml(r.quantity)}</td>
+            <td><strong>${escapeHtml(total.toLocaleString())}</strong></td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="6">ไม่พบข้อมูลสต๊อก</td></tr>';
 
     $('skuCount').textContent = productsData.length.toLocaleString();
     $('stockCount').textContent = balanceData.reduce(
