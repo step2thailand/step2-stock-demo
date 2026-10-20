@@ -120,6 +120,26 @@
   .selected-product-preview { display:flex; align-items:center; gap:10px; margin-top:8px; padding:8px; border:1px solid #dbeafe; border-radius:9px; background:#eff6ff; }
   .selected-product-preview img, .selected-product-preview .product-picker-thumb { width:48px; height:48px; object-fit:contain; border-radius:6px; background:white; flex:0 0 48px; }
   .transaction-preview { border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-top:14px; background:#f8fafc; }
+  body.withdrawal-modal-active { overflow:hidden; }
+  body.withdrawal-modal-active::before { content:""; position:fixed; inset:0; background:rgba(15,23,42,.58); z-index:1000; }
+  body.withdrawal-modal-active #transactionPanel { display:block !important; position:fixed; z-index:1001; inset:50% auto auto 50%; transform:translate(-50%,-50%); width:min(680px, calc(100vw - 24px)); max-height:calc(100dvh - 24px); overflow:auto; margin:0; padding:22px; box-shadow:0 20px 60px rgba(15,23,42,.28); }
+  body.withdrawal-modal-active #transactionPanel .form-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .withdrawal-wizard-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+  .withdrawal-step-label { font-size:13px; color:#64748b; white-space:nowrap; }
+  .withdrawal-progress { display:flex; gap:5px; margin:10px 0 18px; }
+  .withdrawal-progress span { height:5px; flex:1; border-radius:99px; background:#e2e8f0; }
+  .withdrawal-progress span.active { background:#2563eb; }
+  .withdrawal-wizard-actions { display:flex; gap:8px; margin-top:18px; }
+  .withdrawal-wizard-actions button { flex:1; }
+  .withdrawal-wizard-actions .secondary { width:auto; }
+  body.withdrawal-modal-active #transactionPanel .submit-row { max-width:none; margin-top:14px; }
+  body.withdrawal-modal-active #transactionPanel #submitTransaction { width:100%; }
+  @media (max-width:600px) {
+    body.withdrawal-modal-active #transactionPanel { padding:16px; }
+    .withdrawal-wizard-actions { flex-wrap:wrap; }
+    .withdrawal-wizard-actions button { min-width:calc(50% - 8px); }
+  }
+
   .transaction-preview img { width:100px; height:100px; object-fit:contain; background:white; border-radius:8px; }
   .preview-layout { display:flex; gap:12px; align-items:flex-start; }
   @media (max-width:600px) { .preview-layout { flex-direction:column; } }
@@ -186,15 +206,24 @@
     </section>
 
     <section class="panel workflow-panel hidden" id="transactionPanel">
-      <h2>ทำรายการสต๊อก</h2>
-      <p class="muted">
+      <h2 id="transactionPanelTitle">ทำรายการสต๊อก</h2>
+      <p id="transactionPanelDescription" class="muted">
         เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง
       </p>
 
       <form id="transactionForm">
+        <div id="withdrawalWizardHeader" class="hidden">
+          <div class="withdrawal-wizard-header">
+            <strong id="withdrawalStepTitle">1. เลือกสินค้า</strong>
+            <span id="withdrawalStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 4</span>
+          </div>
+          <div id="withdrawalProgress" class="withdrawal-progress" aria-hidden="true">
+            <span class="active"></span><span></span><span></span><span></span>
+          </div>
+        </div>
         <div class="form-grid">
           
-<div style="grid-column: 1 / -1;">
+<div id="barcodeField" style="grid-column: 1 / -1;">
   <label for="barcodeScanInput">สแกน Barcode สินค้า</label>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <input
@@ -214,7 +243,7 @@
   <div id="scanStatus" class="status" role="status"></div>
 </div>
 
-          <div>
+          <div id="transactionTypeField">
             <label for="transactionType">ประเภทธุรกรรม</label>
             <select id="transactionType" required>
               <option value="IN">รับเข้า (IN)</option>
@@ -222,7 +251,7 @@
               <option value="MOVE">ย้ายตำแหน่ง (MOVE)</option>
             </select>
           </div>
-          <div>
+          <div id="productField">
             <label for="transactionProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
             <input id="transactionProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า" autocomplete="off">
             <div id="productPickerResults" class="product-picker-results hidden" role="listbox" aria-label="ผลการค้นหาสินค้า"></div>
@@ -230,7 +259,7 @@
             <select id="transactionProduct" required></select>
             <div id="selectedProductPreview" class="selected-product-preview hidden" aria-live="polite"></div>
           </div>
-          <div>
+          <div id="quantityField">
             <label for="quantity">จำนวน</label>
             <input id="quantity" type="number" min="1" step="1" required>
           </div>
@@ -242,11 +271,16 @@
             <label for="destinationLocation">ตำแหน่งปลายทาง</label>
             <select id="destinationLocation" required></select>
           </div>
-          <div>
+          <div id="notesField">
             <label for="notes">หมายเหตุ (ถ้ามี)</label>
             <input id="notes" type="text" maxlength="500"
               placeholder="เช่น รับสินค้าจากซัพพลายเออร์">
           </div>
+        </div>
+        <div id="withdrawalWizardActions" class="withdrawal-wizard-actions hidden">
+          <button id="withdrawalCancelBtn" type="button" class="secondary">ยกเลิก</button>
+          <button id="withdrawalBackBtn" type="button" class="secondary">ย้อนกลับ</button>
+          <button id="withdrawalNextBtn" type="button">ถัดไป</button>
         </div>
         <div id="transactionPreview" class="transaction-preview hidden" aria-live="polite"></div>
         <div class="submit-row">
@@ -1190,6 +1224,137 @@ $('logoutBtn').addEventListener('click', async () => {
     }
   }
 
+
+  let withdrawalStep = 1;
+  const withdrawalStepTitles = [
+    '1. เลือกสินค้า',
+    '2. ระบุจำนวนเบิก',
+    '3. เลือกตำแหน่งสินค้า',
+    '4. ตรวจสอบรายการ'
+  ];
+
+  function setWithdrawalStep(step) {
+    withdrawalStep = Math.max(1, Math.min(4, step));
+    const isWithdrawalWizard = document.body.classList.contains('withdrawal-modal-active');
+    if (!isWithdrawalWizard) return;
+
+    const visibility = {
+      barcodeField: withdrawalStep === 1,
+      productField: withdrawalStep === 1,
+      quantityField: withdrawalStep === 2,
+      sourceField: withdrawalStep === 3,
+      notesField: withdrawalStep === 4,
+      transactionPreview: withdrawalStep === 4
+    };
+    Object.entries(visibility).forEach(([id, visible]) => {
+      const element = $(id);
+      if (element) element.classList.toggle('hidden', !visible);
+    });
+
+    // Keep hidden required controls from blocking the final submit; the submit handler validates all values.
+    $('transactionProduct').required = false;
+    $('quantity').required = false;
+    $('sourceLocation').required = withdrawalStep === 3;
+    $('destinationLocation').required = false;
+
+    $('withdrawalStepTitle').textContent = withdrawalStepTitles[withdrawalStep - 1];
+    $('withdrawalStepLabel').textContent = 'ขั้นที่ ' + withdrawalStep + ' จาก 4';
+    $('withdrawalProgress').querySelectorAll('span').forEach((bar, index) => {
+      bar.classList.toggle('active', index < withdrawalStep);
+    });
+    $('withdrawalBackBtn').classList.toggle('hidden', withdrawalStep === 1);
+    $('withdrawalNextBtn').classList.toggle('hidden', withdrawalStep === 4);
+    $('submitTransaction').classList.toggle('hidden', withdrawalStep !== 4);
+    $('transactionStatus').textContent = '';
+    if (withdrawalStep === 1) {
+      $('transactionProductSearch').focus();
+      renderProductPickerResults();
+    } else if (withdrawalStep === 2) {
+      $('quantity').focus();
+    } else if (withdrawalStep === 3) {
+      updateSourceLocationOptions();
+      $('sourceLocation').focus();
+    } else {
+      updateTransactionPreview();
+    }
+  }
+
+  async function closeWithdrawalWizard() {
+    if (scannerRunning || html5QrCode) await stopScanner();
+    document.body.classList.remove('withdrawal-modal-active');
+    $('transactionPanel').classList.add('hidden');
+    $('withdrawalWizardHeader').classList.add('hidden');
+    $('withdrawalWizardActions').classList.add('hidden');
+    $('transactionPanelTitle').textContent = 'ทำรายการสต๊อก';
+    $('transactionPanelDescription').textContent = 'เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง';
+    $('transactionProduct').required = true;
+    $('quantity').required = true;
+    updateTransactionFields();
+  }
+
+  function openWithdrawalWizard() {
+    document.body.classList.add('withdrawal-modal-active');
+    $('withdrawalWizardHeader').classList.remove('hidden');
+    $('withdrawalWizardActions').classList.remove('hidden');
+    $('transactionPanelTitle').textContent = 'เบิกสินค้า';
+    $('transactionPanelDescription').textContent = 'ทำตามขั้นตอนทีละข้อ และตรวจสอบรายการก่อนตัดสต๊อก';
+    $('transactionTypeField').classList.add('hidden');
+    $('destinationField').classList.add('hidden');
+    $('transactionPreview').classList.add('hidden');
+    setWithdrawalStep(1);
+  }
+
+  $('withdrawalCancelBtn').addEventListener('click', closeWithdrawalWizard);
+  $('withdrawalBackBtn').addEventListener('click', () => {
+    if (withdrawalStep > 1) setWithdrawalStep(withdrawalStep - 1);
+  });
+  $('withdrawalNextBtn').addEventListener('click', () => {
+    if (withdrawalStep === 1) {
+      if (!$('transactionProduct').value) {
+        setStatus('transactionStatus', 'กรุณาสแกนหรือเลือกสินค้าก่อนดำเนินการต่อ', true);
+        return;
+      }
+      setWithdrawalStep(2);
+      return;
+    }
+    if (withdrawalStep === 2) {
+      const quantity = Number($('quantity').value);
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+        setStatus('transactionStatus', 'กรุณาระบุจำนวนเป็นจำนวนเต็มมากกว่า 0', true);
+        $('quantity').focus();
+        return;
+      }
+      updateSourceLocationOptions();
+      if (!$('sourceLocation').options.length || !$('sourceLocation').value) {
+        setStatus('transactionStatus', 'สินค้านี้ไม่มียอดคงเหลือใน Location ที่พร้อมเบิก', true);
+        return;
+      }
+      setWithdrawalStep(3);
+      return;
+    }
+    if (withdrawalStep === 3) {
+      const productId = $('transactionProduct').value;
+      const sourceId = $('sourceLocation').value;
+      const quantity = Number($('quantity').value);
+      const balance = balanceData.find(item => item.product_id === productId && item.location_id === sourceId);
+      const available = Number(balance?.quantity || 0);
+      if (!sourceId) {
+        setStatus('transactionStatus', 'กรุณาเลือก Location ที่ต้องการเบิก', true);
+        return;
+      }
+      if (quantity > available) {
+        setStatus('transactionStatus', 'จำนวนที่ระบุเกินยอดคงเหลือของ Location นี้ (' + available + ') กรุณาย้อนกลับไปแก้จำนวน หรือเลือก Location อื่น', true);
+        return;
+      }
+      setWithdrawalStep(4);
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('withdrawal-modal-active')) {
+      closeWithdrawalWizard();
+    }
+  });
+
   $('warehouseMenu').querySelectorAll('[data-warehouse-action]').forEach(button => {
     button.addEventListener('click', () => {
       const action = button.getAttribute('data-warehouse-action');
@@ -1225,10 +1390,10 @@ $('logoutBtn').addEventListener('click', async () => {
         return;
       }
 
-      showWorkflowPanel('transactionPanel');
-      $('transactionType').value = action;
       if (action === 'OUT') {
-        // Start every withdrawal with a clean form so a previous transaction is not reused accidentally.
+        showWorkflowPanel('transactionPanel');
+        $('transactionType').value = 'OUT';
+        // Reset the wizard so each withdrawal starts fresh.
         $('transactionProductSearch').value = '';
         $('productPickerResults').classList.add('hidden');
         $('selectedProductPreview').classList.add('hidden');
@@ -1236,23 +1401,41 @@ $('logoutBtn').addEventListener('click', async () => {
         $('transactionProduct').value = '';
         $('quantity').value = '';
         $('notes').value = '';
+        $('sourceLocation').value = '';
+        $('destinationLocation').value = '';
         setStatus('scanStatus', '');
-      }
-      fillTransactionSelects();
-      if (action === 'OUT') {
-        $('transactionProduct').value = '';
-        updateSourceLocationOptions();
-        updateTransactionPreview();
-        $('transactionProductSearch').focus();
-      } else {
+        setStatus('transactionStatus', '');
+        fillTransactionSelects();
         updateTransactionFields();
-        $('transactionProduct').focus();
+        $('transactionProduct').required = false;
+        $('quantity').required = false;
+        openWithdrawalWizard();
+        return;
       }
-      setStatus('transactionStatus', action === 'OUT'
-        ? 'เลือกสินค้า แล้วระบบจะแสดงเฉพาะตำแหน่งที่มีสินค้าคงเหลือ'
-        : action === 'MOVE'
-          ? 'เลือกสินค้าและตำแหน่งต้นทาง/ปลายทางเพื่อตรวจสอบก่อนย้าย'
-          : 'เลือกสินค้า จำนวน และตำแหน่งปลายทางสำหรับรับเข้า');
+
+      // Other transaction types keep their existing form and behavior.
+      showWorkflowPanel('transactionPanel');
+      $('transactionType').value = action;
+      $('withdrawalWizardHeader').classList.add('hidden');
+      $('withdrawalWizardActions').classList.add('hidden');
+      document.body.classList.remove('withdrawal-modal-active');
+      $('transactionTypeField').classList.remove('hidden');
+      $('notesField').classList.remove('hidden');
+      $('barcodeField').classList.remove('hidden');
+      $('productField').classList.remove('hidden');
+      $('quantityField').classList.remove('hidden');
+      $('transactionPreview').classList.add('hidden');
+      $('submitTransaction').classList.remove('hidden');
+      $('transactionProduct').required = true;
+      $('quantity').required = true;
+      $('transactionPanelTitle').textContent = 'ทำรายการสต๊อก';
+      $('transactionPanelDescription').textContent = 'เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง';
+      fillTransactionSelects();
+      updateTransactionFields();
+      $('transactionProduct').focus();
+      setStatus('transactionStatus', action === 'MOVE'
+        ? 'เลือกสินค้าและตำแหน่งต้นทาง/ปลายทางเพื่อตรวจสอบก่อนย้าย'
+        : 'เลือกสินค้า จำนวน และตำแหน่งปลายทางสำหรับรับเข้า');
     });
   });
 
@@ -1372,6 +1555,7 @@ const destinationId =
       $('notes').value = '';
       setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
       await refreshAll();
+      if (type === 'OUT') await closeWithdrawalWizard();
     } catch (error) {
       setStatus('transactionStatus', 'บันทึกไม่สำเร็จ: ' + error.message, true);
     } finally {
