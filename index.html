@@ -75,6 +75,8 @@
       flex-direction: column; align-items: center; justify-content: center;
       gap: 5px; padding: 12px 10px; line-height: 1.3; text-align: center;
     }
+    .warehouse-menu button.menu-square { aspect-ratio: 1 / 1; min-height: 0; }
+    .warehouse-menu-grid [data-warehouse-action="HISTORY"] { grid-column: 1 / -1; aspect-ratio: auto; min-height: 58px; }
     .warehouse-menu button .menu-title { font-weight: 700; }
     .warehouse-menu button .menu-description { font-size: 12px; font-weight: 400; opacity: .95; }
     .warehouse-menu button[data-warehouse-action="HISTORY"] { grid-column: 1 / -1; min-height: 58px; }
@@ -93,7 +95,7 @@
       .panel { padding: 14px; margin-bottom: 14px; }
       .warehouse-menu { margin-bottom: 0; }
       .warehouse-menu-grid { gap: 8px; }
-      .warehouse-menu button { min-height: 76px; padding: 10px 7px; font-size: 14px; }
+      .warehouse-menu button.menu-square { aspect-ratio: 1 / 1; min-height: 0; padding: 8px 5px; font-size: 14px; }
       .warehouse-menu button .menu-description { font-size: 11px; }
       .dashboard-metrics { margin-top: 14px; }
       .metrics { grid-template-columns: 1fr; gap: 8px; }
@@ -145,12 +147,12 @@
     <section class="panel warehouse-menu" id="warehouseMenu">
       <h2>เมนูงานคลังสินค้า</h2>
       <div class="warehouse-menu-grid">
-        <button type="button" class="menu-issue" data-warehouse-action="OUT"><span class="menu-title">เบิกสินค้า</span><span class="menu-description">ตัดสต๊อกสินค้า</span></button>
-        <button type="button" class="menu-stock" data-warehouse-action="STOCK"><span class="menu-title">ตรวจสอบสต๊อก</span><span class="menu-description">ตรวจสอบยอดคงเหลือ</span></button>
-        <button type="button" class="menu-move" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
-        <button type="button" class="menu-products" data-warehouse-action="PRODUCTS"><span class="menu-title">รายการสินค้า</span><span class="menu-description">ดูสินค้าทั้งหมด</span></button>
-        <button type="button" class="menu-add-product" data-warehouse-action="ADD_PRODUCT"><span class="menu-title">เพิ่มสินค้า (Admin)</span><span class="menu-description">เพิ่มสินค้าใหม่เข้าระบบ</span></button>
-        <button type="button" class="menu-receive" data-warehouse-action="IN"><span class="menu-title">รับสินค้าเข้า</span><span class="menu-description">เพิ่มสต๊อกสินค้า</span></button>
+        <button type="button" class="menu-issue menu-square" data-warehouse-action="OUT"><span class="menu-title">เบิกสินค้า</span><span class="menu-description">ตัดสต๊อกสินค้า</span></button>
+        <button type="button" class="menu-stock menu-square" data-warehouse-action="STOCK"><span class="menu-title">ตรวจสอบสต๊อก</span><span class="menu-description">ตรวจสอบยอดคงเหลือ</span></button>
+        <button type="button" class="menu-move menu-square" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
+        <button type="button" class="menu-products menu-square" data-warehouse-action="PRODUCTS"><span class="menu-title">รายการสินค้า</span><span class="menu-description">ดูสินค้าทั้งหมด</span></button>
+        <button type="button" class="menu-add-product menu-square" data-warehouse-action="ADD_PRODUCT"><span class="menu-title">เพิ่มสินค้า (Admin)</span><span class="menu-description">เพิ่มสินค้าใหม่เข้าระบบ</span></button>
+        <button type="button" class="menu-receive menu-square" data-warehouse-action="IN"><span class="menu-title">รับสินค้าเข้า</span><span class="menu-description">เพิ่มสต๊อกสินค้า</span></button>
         <button type="button" class="menu-history" data-warehouse-action="HISTORY"><span class="menu-title">ประวัติทำรายการ</span></button>
       </div>
     </section>
@@ -173,7 +175,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel workflow-panel hidden" id="transactionPanel">
       <h2>ทำรายการสต๊อก</h2>
       <p class="muted">
         เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง
@@ -243,7 +245,7 @@
     </section>
 
 
-<section class="panel" id="productCatalogPanel">
+<section class="panel workflow-panel hidden" id="productCatalogPanel">
   <h2>รายการสินค้าทั้งหมด</h2>
   <p class="muted">ค้นหาสินค้าด้วย SKU, ชื่อสินค้า หรือ Barcode</p>
   <div class="toolbar"><input id="catalogSearch" type="search" placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode"></div>
@@ -251,7 +253,7 @@
   <div id="productCatalogGrid" class="product-catalog-grid"></div>
 </section>
 
-<section id="productManagementSection" class="panel">
+<section id="productManagementSection" class="panel workflow-panel hidden">
 
   <h2>จัดการสินค้า</h2>
   <p>เพิ่มสินค้าใหม่ หรือแก้ไขข้อมูลสินค้าที่มีอยู่</p>
@@ -340,7 +342,7 @@
   </form>
 </div>
 
-    <section class="panel" id="stockLookupPanel">
+    <section class="panel workflow-panel hidden" id="stockLookupPanel">
       <h2>ยอดสต๊อกสินค้า</h2>
       
 <div class="toolbar">
@@ -385,7 +387,7 @@
       </div>
     </section>
 
-    <section class="panel" id="historyPanel">
+    <section class="panel workflow-panel hidden" id="historyPanel">
       <h2>ประวัติธุรกรรมล่าสุด</h2>
       <p class="muted">แสดงรายการล่าสุดไม่เกิน 50 รายการ</p>
       <div id="historyStatus" class="status" role="status"></div>
@@ -1085,22 +1087,35 @@ $('logoutBtn').addEventListener('click', async () => {
 
   $('transactionType').addEventListener('change', updateTransactionFields);
 
+  function hideWorkflowPanels() {
+    document.querySelectorAll('.workflow-panel').forEach(panel => panel.classList.add('hidden'));
+  }
+
+  function showWorkflowPanel(id) {
+    hideWorkflowPanels();
+    const panel = $(id);
+    if (panel) {
+      panel.classList.remove('hidden');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   $('warehouseMenu').querySelectorAll('[data-warehouse-action]').forEach(button => {
     button.addEventListener('click', () => {
       const action = button.getAttribute('data-warehouse-action');
 
       if (action === 'STOCK') {
+        showWorkflowPanel('stockLookupPanel');
         $('search').value = '';
         renderStock();
         $('search').focus();
-        $('stockLookupPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
 
       if (action === 'PRODUCTS') {
+        showWorkflowPanel('productCatalogPanel');
         $('catalogSearch').value = '';
         renderProductCatalog();
-        $('productCatalogPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
         $('catalogSearch').focus();
         return;
       }
@@ -1110,19 +1125,19 @@ $('logoutBtn').addEventListener('click', async () => {
           setStatus('loginStatus', 'เมนูเพิ่มสินค้าเปิดได้เฉพาะผู้ดูแลระบบ', true);
           return;
         }
-        $('productManagementSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showWorkflowPanel('productManagementSection');
         $('addProductBtn').click();
         return;
       }
 
       if (action === 'HISTORY') {
-        $('historyPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showWorkflowPanel('historyPanel');
         return;
       }
 
+      showWorkflowPanel('transactionPanel');
       $('transactionType').value = action;
       updateTransactionFields();
-      $('transactionForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
       $('transactionProduct').focus();
       setStatus('transactionStatus', action === 'OUT'
         ? 'เลือกสินค้า แล้วระบบจะแสดงเฉพาะตำแหน่งที่มีสินค้าคงเหลือ'
