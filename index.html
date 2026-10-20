@@ -1339,11 +1339,8 @@ $('logoutBtn').addEventListener('click', async () => {
         $('quantity').focus();
         return;
       }
-      updateSourceLocationOptions();
-      if (!$('sourceLocation').options.length || !$('sourceLocation').value) {
-        setStatus('transactionStatus', 'สินค้านี้ไม่มียอดคงเหลือใน Location ที่พร้อมเบิก', true);
-        return;
-      }
+      // Quantity step validates only the entered quantity.
+      // Location availability and per-location stock are handled in step 3.
       setWithdrawalStep(3);
       return;
     }
