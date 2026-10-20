@@ -218,7 +218,7 @@
             <span id="withdrawalStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 4</span>
           </div>
           <div id="withdrawalProgress" class="withdrawal-progress" aria-hidden="true">
-            <span class="active"></span><span></span><span></span><span></span>
+            <span class="active"></span><span></span><span></span><span></span><span></span>
           </div>
         </div>
         <div class="form-grid">
@@ -994,14 +994,41 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     const panel = $('transactionPreview');
     // In the withdrawal wizard, show stock validation/preview only on the final review step.
     // Updating location options during step 2 must not display a stale location-specific error.
-    if (document.body.classList.contains('withdrawal-modal-active') && withdrawalStep !== 4) {
+    if (document.body.classList.contains('withdrawal-modal-active') && withdrawalStep !== wizardStepCount()) {
       panel.classList.add('hidden');
       panel.innerHTML = '';
       return;
     }
     const type = $('transactionType').value;
     const product = productsData.find(p => p.id === $('transactionProduct').value);
-    if (!product || type !== 'OUT') { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    if (!product) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    if (type === 'IN') {
+      panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนรับสินค้าเข้า</h3><div class="preview-layout">' +
+        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
+        '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
+        '<div>จำนวนรับเข้า: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>Location ปลายทาง: ' + escapeHtml(locationName($('destinationLocation').value)) + '</div></div></div>';
+      panel.classList.remove('hidden');
+      return;
+    }
+    if (type === 'MOVE') {
+      const sourceId = $('sourceLocation').value;
+      const destinationId = $('destinationLocation').value;
+      const quantity = Number($('quantity').value || 0);
+      const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
+      const current = Number(row?.quantity || 0);
+      const valid = !!sourceId && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= current;
+      panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนย้ายตำแหน่ง</h3><div class="preview-layout">' +
+        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
+        '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
+        '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (คงเหลือ ' + current.toLocaleString() + ')</div>' +
+        '<div>ปลายทาง: ' + escapeHtml(locationName(destinationId)) + '</div>' +
+        '<div><strong>' + (valid ? 'คงเหลือที่ต้นทางหลังย้าย: ' + (current - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนสินค้า') + '</strong></div></div></div>';
+      panel.classList.remove('hidden');
+      return;
+    }
+    if (type !== 'OUT') { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
     const sourceId = $('sourceLocation').value;
     const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
     const current = Number(row?.quantity || 0);
@@ -1034,8 +1061,10 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       $('sourceField').classList.toggle('hidden', !needsSource);
       $('destinationField').classList.toggle('hidden', !needsDestination);
     }
-    $('sourceLocation').required = isWithdrawalWizard ? withdrawalStep === 3 : needsSource;
-    $('destinationLocation').required = isWithdrawalWizard ? false : needsDestination;
+    const sourceStep = wizardType === 'IN' ? -1 : 3;
+    const destinationStep = wizardType === 'IN' ? 3 : wizardType === 'MOVE' ? 4 : -1;
+    $('sourceLocation').required = isWithdrawalWizard ? withdrawalStep === sourceStep : needsSource;
+    $('destinationLocation').required = isWithdrawalWizard ? withdrawalStep === destinationStep : needsDestination;
     updateSourceLocationOptions();
     updateTransactionPreview();
   }
@@ -1246,54 +1275,59 @@ $('logoutBtn').addEventListener('click', async () => {
 
 
   let withdrawalStep = 1;
-  const withdrawalStepTitles = [
-    '1. เลือกสินค้า',
-    '2. ระบุจำนวนเบิก',
-    '3. เลือกตำแหน่งสินค้า',
-    '4. ตรวจสอบรายการ'
-  ];
-
+  let wizardType = 'OUT';
+  const wizardTypeNames = { OUT: 'เบิกสินค้า', IN: 'รับสินค้าเข้า', MOVE: 'ย้ายตำแหน่ง' };
+  const wizardSteps = {
+    OUT: ['เลือกสินค้า', 'ระบุจำนวนเบิก', 'เลือกตำแหน่งต้นทาง', 'ตรวจสอบรายการ'],
+    IN: ['เลือกสินค้า', 'ระบุจำนวนรับเข้า', 'เลือกตำแหน่งปลายทาง', 'ตรวจสอบรายการ'],
+    MOVE: ['เลือกสินค้า', 'ระบุจำนวนย้าย', 'เลือกตำแหน่งต้นทาง', 'เลือกตำแหน่งปลายทาง', 'ตรวจสอบรายการ']
+  };
+  function wizardStepCount() { return wizardSteps[wizardType].length; }
   function setWithdrawalStep(step) {
-    withdrawalStep = Math.max(1, Math.min(4, step));
-    const isWithdrawalWizard = document.body.classList.contains('withdrawal-modal-active');
-    if (!isWithdrawalWizard) return;
-
+    withdrawalStep = Math.max(1, Math.min(wizardStepCount(), step));
+    const isWizard = document.body.classList.contains('withdrawal-modal-active');
+    if (!isWizard) return;
+    const total = wizardStepCount();
+    const sourceStep = wizardType === 'IN' ? -1 : 3;
+    const destinationStep = wizardType === 'IN' ? 3 : wizardType === 'MOVE' ? 4 : -1;
+    const reviewStep = total;
     const visibility = {
       barcodeField: withdrawalStep === 1,
       productField: withdrawalStep === 1,
       quantityField: withdrawalStep === 2,
-      sourceField: withdrawalStep === 3,
-      notesField: withdrawalStep === 4,
-      transactionPreview: withdrawalStep === 4
+      sourceField: withdrawalStep === sourceStep,
+      destinationField: withdrawalStep === destinationStep,
+      notesField: withdrawalStep === reviewStep,
+      transactionPreview: withdrawalStep === reviewStep
     };
     Object.entries(visibility).forEach(([id, visible]) => {
       const element = $(id);
       if (element) element.classList.toggle('hidden', !visible);
     });
-
-    // Keep hidden required controls from blocking the final submit; the submit handler validates all values.
     $('transactionProduct').required = false;
     $('quantity').required = false;
-    $('sourceLocation').required = withdrawalStep === 3;
-    $('destinationLocation').required = false;
-
-    $('withdrawalStepTitle').textContent = withdrawalStepTitles[withdrawalStep - 1];
-    $('withdrawalStepLabel').textContent = 'ขั้นที่ ' + withdrawalStep + ' จาก 4';
+    $('sourceLocation').required = withdrawalStep === sourceStep;
+    $('destinationLocation').required = withdrawalStep === destinationStep;
+    $('withdrawalStepTitle').textContent = withdrawalStep + '. ' + wizardSteps[wizardType][withdrawalStep - 1];
+    $('withdrawalStepLabel').textContent = 'ขั้นที่ ' + withdrawalStep + ' จาก ' + total;
     $('withdrawalProgress').querySelectorAll('span').forEach((bar, index) => {
       bar.classList.toggle('active', index < withdrawalStep);
+      bar.classList.toggle('hidden', index >= total);
     });
     $('withdrawalBackBtn').classList.toggle('hidden', withdrawalStep === 1);
-    $('withdrawalNextBtn').classList.toggle('hidden', withdrawalStep === 4);
-    $('submitTransaction').classList.toggle('hidden', withdrawalStep !== 4);
+    $('withdrawalNextBtn').classList.toggle('hidden', withdrawalStep === total);
+    $('submitTransaction').classList.toggle('hidden', withdrawalStep !== total);
     $('transactionStatus').textContent = '';
     if (withdrawalStep === 1) {
       $('transactionProductSearch').focus();
       renderProductPickerResults();
     } else if (withdrawalStep === 2) {
       $('quantity').focus();
-    } else if (withdrawalStep === 3) {
+    } else if (withdrawalStep === sourceStep) {
       updateSourceLocationOptions();
       $('sourceLocation').focus();
+    } else if (withdrawalStep === destinationStep) {
+      $('destinationLocation').focus();
     } else {
       updateTransactionPreview();
     }
@@ -1309,17 +1343,23 @@ $('logoutBtn').addEventListener('click', async () => {
     $('transactionPanelDescription').textContent = 'เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง';
     $('transactionProduct').required = true;
     $('quantity').required = true;
+    $('destinationLocation').required = true;
     updateTransactionFields();
   }
 
-  function openWithdrawalWizard() {
+  function openWithdrawalWizard(type) {
+    wizardType = type;
+    $('transactionType').value = type;
     document.body.classList.add('withdrawal-modal-active');
     $('withdrawalWizardHeader').classList.remove('hidden');
     $('withdrawalWizardActions').classList.remove('hidden');
-    $('transactionPanelTitle').textContent = 'เบิกสินค้า';
-    $('transactionPanelDescription').textContent = 'ทำตามขั้นตอนทีละข้อ และตรวจสอบรายการก่อนตัดสต๊อก';
+    $('transactionPanelTitle').textContent = wizardTypeNames[type];
+    $('transactionPanelDescription').textContent = type === 'OUT'
+      ? 'ทำตามขั้นตอนทีละข้อ และตรวจสอบรายการก่อนตัดสต๊อก'
+      : type === 'IN'
+        ? 'ทำตามขั้นตอนทีละข้อ และตรวจสอบรายการก่อนเพิ่มสต๊อก'
+        : 'ทำตามขั้นตอนทีละข้อ และตรวจสอบต้นทาง/ปลายทางก่อนย้ายสต๊อก';
     $('transactionTypeField').classList.add('hidden');
-    $('destinationField').classList.add('hidden');
     $('transactionPreview').classList.add('hidden');
     setWithdrawalStep(1);
   }
@@ -1329,6 +1369,7 @@ $('logoutBtn').addEventListener('click', async () => {
     if (withdrawalStep > 1) setWithdrawalStep(withdrawalStep - 1);
   });
   $('withdrawalNextBtn').addEventListener('click', () => {
+    const total = wizardStepCount();
     if (withdrawalStep === 1) {
       if (!$('transactionProduct').value) {
         setStatus('transactionStatus', 'กรุณาสแกนหรือเลือกสินค้าก่อนดำเนินการต่อ', true);
@@ -1344,27 +1385,41 @@ $('logoutBtn').addEventListener('click', async () => {
         $('quantity').focus();
         return;
       }
-      // Quantity step validates only the entered quantity.
-      // Location availability and per-location stock are handled in step 3.
       setWithdrawalStep(3);
       return;
     }
-    if (withdrawalStep === 3) {
+    const sourceStep = wizardType === 'IN' ? -1 : 3;
+    const destinationStep = wizardType === 'IN' ? 3 : wizardType === 'MOVE' ? 4 : -1;
+    if (withdrawalStep === sourceStep) {
       const productId = $('transactionProduct').value;
       const sourceId = $('sourceLocation').value;
       const quantity = Number($('quantity').value);
       const balance = balanceData.find(item => item.product_id === productId && item.location_id === sourceId);
       const available = Number(balance?.quantity || 0);
       if (!sourceId) {
-        setStatus('transactionStatus', 'กรุณาเลือก Location ที่ต้องการเบิก', true);
+        setStatus('transactionStatus', 'กรุณาเลือก Location ต้นทาง', true);
         return;
       }
       if (quantity > available) {
         setStatus('transactionStatus', 'จำนวนที่ระบุเกินยอดคงเหลือของ Location นี้ (' + available + ') กรุณาย้อนกลับไปแก้จำนวน หรือเลือก Location อื่น', true);
         return;
       }
-      setWithdrawalStep(4);
+      setWithdrawalStep(withdrawalStep + 1);
+      return;
     }
+    if (withdrawalStep === destinationStep) {
+      if (!$('destinationLocation').value) {
+        setStatus('transactionStatus', 'กรุณาเลือก Location ปลายทาง', true);
+        return;
+      }
+      if (wizardType === 'MOVE' && $('sourceLocation').value === $('destinationLocation').value) {
+        setStatus('transactionStatus', 'ต้นทางและปลายทางต้องไม่ใช่ตำแหน่งเดียวกัน', true);
+        return;
+      }
+      setWithdrawalStep(withdrawalStep + 1);
+      return;
+    }
+    if (withdrawalStep < total) setWithdrawalStep(withdrawalStep + 1);
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && document.body.classList.contains('withdrawal-modal-active')) {
@@ -1407,10 +1462,10 @@ $('logoutBtn').addEventListener('click', async () => {
         return;
       }
 
-      if (action === 'OUT') {
+      if (action === 'OUT' || action === 'IN' || action === 'MOVE') {
         showWorkflowPanel('transactionPanel');
-        $('transactionType').value = 'OUT';
-        // Reset the wizard so each withdrawal starts fresh.
+        $('transactionType').value = action;
+        // Reset the transaction wizard so every workflow starts fresh.
         $('transactionProductSearch').value = '';
         $('productPickerResults').classList.add('hidden');
         $('selectedProductPreview').classList.add('hidden');
@@ -1426,11 +1481,12 @@ $('logoutBtn').addEventListener('click', async () => {
         updateTransactionFields();
         $('transactionProduct').required = false;
         $('quantity').required = false;
-        openWithdrawalWizard();
+        $('destinationLocation').required = false;
+        openWithdrawalWizard(action);
         return;
       }
 
-      // Other transaction types keep their existing form and behavior.
+      // Other warehouse actions are handled above.
       showWorkflowPanel('transactionPanel');
       $('transactionType').value = action;
       $('withdrawalWizardHeader').classList.add('hidden');
