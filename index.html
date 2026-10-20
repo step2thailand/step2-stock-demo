@@ -987,6 +987,9 @@ async function applySession(session) {
   $('stockSection').classList.toggle('hidden', !currentUserId);
   $('logoutBtn').classList.toggle('hidden', !currentUserId);
 
+  // Always return to the home menu when the signed-in user changes.
+  hideWorkflowPanels();
+
   if (currentUserId) {
     setStatus('loginStatus', '');
 
