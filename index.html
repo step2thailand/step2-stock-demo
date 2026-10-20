@@ -424,6 +424,9 @@
   let currentUserId = null;
   let authVersion = 0;
   let busy = false;
+  // Reuse the same key if the exact same transaction is retried after a network error.
+  let pendingTransactionSignature = null;
+  let pendingTransactionKey = null;
 
   function setStatus(id, message, isError = false) {
     const el = $(id);
@@ -1221,14 +1224,21 @@ const destinationId =
 
     if (!window.confirm(confirmMessage)) return;
 
+    const requestSignature = JSON.stringify({
+      type, productId, quantity, sourceId, destinationId, notes
+    });
+    if (pendingTransactionSignature !== requestSignature) {
+      pendingTransactionSignature = requestSignature;
+      pendingTransactionKey = crypto.randomUUID();
+    }
+
     busy = true;
     $('submitTransaction').disabled = true;
     setStatus('transactionStatus', 'กำลังบันทึกรายการ...');
 
     try {
-      const idempotencyKey = crypto.randomUUID();
       const { error } = await db.rpc('process_stock_transaction', {
-        p_idempotency_key: idempotencyKey,
+        p_idempotency_key: pendingTransactionKey,
         p_transaction_type: type,
         p_product_id: productId,
         p_quantity: quantity,
@@ -1239,6 +1249,8 @@ const destinationId =
 
       if (error) throw error;
 
+      pendingTransactionSignature = null;
+      pendingTransactionKey = null;
       $('quantity').value = '';
       $('notes').value = '';
       setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
