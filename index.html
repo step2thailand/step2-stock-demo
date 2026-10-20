@@ -816,6 +816,7 @@ function selectProductByBarcode(code) {
   $("transactionProductSearch").value = product.sku + " — " + product.product_name;
   fillTransactionSelects();
   $("transactionProduct").value = product.id;
+  renderSelectedProductPreview();
   updateSourceLocationOptions();
   updateTransactionPreview();
   $("barcodeScanInput").value = normalized;
