@@ -1143,6 +1143,25 @@ const destinationId =
     }
 
     const product = productsData.find(p => p.id === productId);
+
+    // ตรวจสอบยอดฝั่งหน้าจอก่อนยืนยันเบิก; ฝั่ง RPC ยังเป็นตัวป้องกันหลักแบบ atomic
+    if (type === 'OUT') {
+      const sourceBalance = balanceData.find(
+        balance => balance.product_id === productId && balance.location_id === sourceId
+      );
+      const availableQuantity = Number(sourceBalance?.quantity || 0);
+
+      if (quantity > availableQuantity) {
+        setStatus(
+          'transactionStatus',
+          `จำนวนที่เบิก (${quantity}) มากกว่ายอดคงเหลือที่ตำแหน่งนี้ (${availableQuantity}) กรุณาแก้ไขจำนวน`,
+          true
+        );
+        updateTransactionPreview();
+        return;
+      }
+    }
+
     const typeLabel = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง' }[type];
     const confirmMessage =
       `ยืนยัน${typeLabel}\nสินค้า: ${product?.sku || ''}\nจำนวน: ${quantity}\n` +
