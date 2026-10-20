@@ -712,7 +712,8 @@ function findProductByBarcode(code) {
   const normalized = String(code || "").trim().toLowerCase();
 
   return productsData.find(
-    p => String(p.barcode || "").trim().toLowerCase() === normalized
+    p => p.is_active === true &&
+      String(p.barcode || "").trim().toLowerCase() === normalized
   );
 }
 
@@ -724,12 +725,20 @@ function selectProductByBarcode(code) {
     return false;
   }
 
-  const matches = productsData.filter(
+  const barcodeMatches = productsData.filter(
     p => String(p.barcode || "").trim().toLowerCase() === normalized.toLowerCase()
   );
+  const matches = barcodeMatches.filter(p => p.is_active === true);
 
   if (matches.length === 0) {
-    setStatus("scanStatus", `ไม่พบสินค้า Barcode: ${normalized}`, true);
+    const hasInactiveMatch = barcodeMatches.some(p => p.is_active !== true);
+    setStatus(
+      "scanStatus",
+      hasInactiveMatch
+        ? `สินค้า Barcode: ${normalized} ถูกปิดใช้งาน ไม่สามารถทำรายการได้`
+        : `ไม่พบสินค้า Barcode: ${normalized}`,
+      true
+    );
     return false;
   }
 
