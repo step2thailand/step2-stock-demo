@@ -987,6 +987,13 @@ $("stopScanBtn").addEventListener("click", stopScanner);
 
   function updateTransactionPreview() {
     const panel = $('transactionPreview');
+    // In the withdrawal wizard, show stock validation/preview only on the final review step.
+    // Updating location options during step 2 must not display a stale location-specific error.
+    if (document.body.classList.contains('withdrawal-modal-active') && withdrawalStep !== 4) {
+      panel.classList.add('hidden');
+      panel.innerHTML = '';
+      return;
+    }
     const type = $('transactionType').value;
     const product = productsData.find(p => p.id === $('transactionProduct').value);
     if (!product || type !== 'OUT') { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
