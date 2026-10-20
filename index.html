@@ -109,7 +109,37 @@
   .product-card img { width:100%; height:150px; object-fit:contain; background:#f8fafc; border-radius:8px; }
   .product-card-name { font-weight:bold; margin:8px 0 4px; overflow-wrap:anywhere; }
   .product-card-meta { color:#64748b; font-size:13px; overflow-wrap:anywhere; }
+  .product-picker-results { margin-top:6px; border:1px solid #cbd5e1; border-radius:9px; overflow:hidden; max-height:280px; overflow-y:auto; background:#fff; }
+  .product-picker-option { display:flex; align-items:center; gap:10px; width:100%; padding:8px; border:0; border-bottom:1px solid #e5e7eb; border-radius:0; background:#fff; color:#253247; text-align:left; font-weight:400; }
+  .product-picker-option:last-child { border-bottom:0; }
+  .product-picker-option:hover, .product-picker-option:focus { background:#f1f5f9; }
+  .product-picker-option img, .product-picker-thumb { flex:0 0 48px; width:48px; height:48px; border-radius:6px; object-fit:contain; background:#f1f5f9; }
+  .product-picker-details { min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .product-picker-sku { font-size:12px; color:#64748b; overflow-wrap:anywhere; }
+  .product-picker-name { font-weight:700; overflow-wrap:anywhere; }
+  .selected-product-preview { display:flex; align-items:center; gap:10px; margin-top:8px; padding:8px; border:1px solid #dbeafe; border-radius:9px; background:#eff6ff; }
+  .selected-product-preview img, .selected-product-preview .product-picker-thumb { width:48px; height:48px; object-fit:contain; border-radius:6px; background:white; flex:0 0 48px; }
   .transaction-preview { border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-top:14px; background:#f8fafc; }
+  body.withdrawal-modal-active { overflow:hidden; }
+  body.withdrawal-modal-active::before { content:""; position:fixed; inset:0; background:rgba(15,23,42,.58); z-index:1000; }
+  body.withdrawal-modal-active #transactionPanel { display:block !important; position:fixed; z-index:1001; inset:50% auto auto 50%; transform:translate(-50%,-50%); width:min(680px, calc(100vw - 24px)); max-height:calc(100dvh - 24px); overflow:auto; margin:0; padding:22px; box-shadow:0 20px 60px rgba(15,23,42,.28); }
+  body.withdrawal-modal-active #transactionPanel .form-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .withdrawal-wizard-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+  .withdrawal-step-label { font-size:13px; color:#64748b; white-space:nowrap; }
+  .withdrawal-progress { display:flex; gap:5px; margin:10px 0 18px; }
+  .withdrawal-progress span { height:5px; flex:1; border-radius:99px; background:#e2e8f0; }
+  .withdrawal-progress span.active { background:#2563eb; }
+  .withdrawal-wizard-actions { display:flex; gap:8px; margin-top:18px; }
+  .withdrawal-wizard-actions button { flex:1; }
+  .withdrawal-wizard-actions .secondary { width:auto; }
+  body.withdrawal-modal-active #transactionPanel .submit-row { max-width:none; margin-top:14px; }
+  body.withdrawal-modal-active #transactionPanel #submitTransaction { width:100%; }
+  @media (max-width:600px) {
+    body.withdrawal-modal-active #transactionPanel { padding:16px; }
+    .withdrawal-wizard-actions { flex-wrap:wrap; }
+    .withdrawal-wizard-actions button { min-width:calc(50% - 8px); }
+  }
+
   .transaction-preview img { width:100px; height:100px; object-fit:contain; background:white; border-radius:8px; }
   .preview-layout { display:flex; gap:12px; align-items:flex-start; }
   @media (max-width:600px) { .preview-layout { flex-direction:column; } }
@@ -176,15 +206,24 @@
     </section>
 
     <section class="panel workflow-panel hidden" id="transactionPanel">
-      <h2>ทำรายการสต๊อก</h2>
-      <p class="muted">
+      <h2 id="transactionPanelTitle">ทำรายการสต๊อก</h2>
+      <p id="transactionPanelDescription" class="muted">
         เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง
       </p>
 
       <form id="transactionForm">
+        <div id="withdrawalWizardHeader" class="hidden">
+          <div class="withdrawal-wizard-header">
+            <strong id="withdrawalStepTitle">1. เลือกสินค้า</strong>
+            <span id="withdrawalStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 4</span>
+          </div>
+          <div id="withdrawalProgress" class="withdrawal-progress" aria-hidden="true">
+            <span class="active"></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
         <div class="form-grid">
           
-<div style="grid-column: 1 / -1;">
+<div id="barcodeField" style="grid-column: 1 / -1;">
   <label for="barcodeScanInput">สแกน Barcode สินค้า</label>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <input
@@ -204,7 +243,7 @@
   <div id="scanStatus" class="status" role="status"></div>
 </div>
 
-          <div>
+          <div id="transactionTypeField">
             <label for="transactionType">ประเภทธุรกรรม</label>
             <select id="transactionType" required>
               <option value="IN">รับเข้า (IN)</option>
@@ -212,13 +251,15 @@
               <option value="MOVE">ย้ายตำแหน่ง (MOVE)</option>
             </select>
           </div>
-          <div>
+          <div id="productField">
             <label for="transactionProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
-            <input id="transactionProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า">
-            <label for="transactionProduct" style="margin-top:8px;">เลือกสินค้า</label>
+            <input id="transactionProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า" autocomplete="off">
+            <div id="productPickerResults" class="product-picker-results hidden" role="listbox" aria-label="ผลการค้นหาสินค้า"></div>
+            <label for="transactionProduct" style="margin-top:8px;">เลือกสินค้าที่ต้องการ</label>
             <select id="transactionProduct" required></select>
+            <div id="selectedProductPreview" class="selected-product-preview hidden" aria-live="polite"></div>
           </div>
-          <div>
+          <div id="quantityField">
             <label for="quantity">จำนวน</label>
             <input id="quantity" type="number" min="1" step="1" required>
           </div>
@@ -230,11 +271,16 @@
             <label for="destinationLocation">ตำแหน่งปลายทาง</label>
             <select id="destinationLocation" required></select>
           </div>
-          <div>
+          <div id="notesField">
             <label for="notes">หมายเหตุ (ถ้ามี)</label>
             <input id="notes" type="text" maxlength="500"
               placeholder="เช่น รับสินค้าจากซัพพลายเออร์">
           </div>
+        </div>
+        <div id="withdrawalWizardActions" class="withdrawal-wizard-actions hidden">
+          <button id="withdrawalCancelBtn" type="button" class="secondary">ยกเลิก</button>
+          <button id="withdrawalBackBtn" type="button" class="secondary">ย้อนกลับ</button>
+          <button id="withdrawalNextBtn" type="button">ถัดไป</button>
         </div>
         <div id="transactionPreview" class="transaction-preview hidden" aria-live="polite"></div>
         <div class="submit-row">
@@ -665,6 +711,60 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
   });
 }
   
+function renderProductPickerResults() {
+  const input = $('transactionProductSearch');
+  const results = $('productPickerResults');
+  const term = input.value.trim().toLowerCase();
+  const activeProducts = productsData.filter(p => p.is_active === true &&
+    [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
+  const currentId = $('transactionProduct').value;
+  const shownProducts = term ? activeProducts : activeProducts.slice(0, 20);
+
+  results.innerHTML = shownProducts.length ? shownProducts.map(p =>
+    '<button type="button" class="product-picker-option" role="option" aria-selected="' + (p.id === currentId) + '" data-picker-product="' + escapeHtml(p.id) + '">' +
+      (p.image_url
+        ? '<img src="' + escapeHtml(p.image_url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+        : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+      '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(p.sku) + '</span>' +
+      '<span class="product-picker-name">' + escapeHtml(p.product_name) + '</span>' +
+      '<span class="product-picker-sku">Barcode: ' + escapeHtml(p.barcode || '—') + '</span></span></button>'
+  ).join('') : '<div class="muted" style="padding:12px;">ไม่พบสินค้า</div>';
+
+  results.classList.remove('hidden');
+  results.querySelectorAll('[data-picker-product]').forEach(button => {
+    button.addEventListener('click', () => {
+      const productId = button.getAttribute('data-picker-product');
+      const product = productsData.find(p => p.id === productId && p.is_active === true);
+      if (!product) return;
+      // Keep the filter value as SKU only; the formatted label would not match
+      // the searchable SKU/name/Barcode fields and would clear the product option.
+      $('transactionProductSearch').value = product.sku;
+      fillTransactionSelects();
+      $('transactionProduct').value = product.id;
+      results.classList.add('hidden');
+      renderSelectedProductPreview();
+      updateSourceLocationOptions();
+      updateTransactionPreview();
+    });
+  });
+}
+
+function renderSelectedProductPreview() {
+  const panel = $('selectedProductPreview');
+  const product = productsData.find(p => p.id === $('transactionProduct').value && p.is_active === true);
+  if (!product) {
+    panel.classList.add('hidden');
+    panel.innerHTML = '';
+    return;
+  }
+  panel.innerHTML = (product.image_url
+    ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">'
+    : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+    '<span class="product-picker-details"><span class="product-picker-sku">เลือกสินค้าแล้ว · ' + escapeHtml(product.sku) + '</span>' +
+    '<span class="product-picker-name">' + escapeHtml(product.product_name) + '</span></span>';
+  panel.classList.remove('hidden');
+}
+
 function fillTransactionSelects() {
   const term = $('transactionProductSearch').value.trim().toLowerCase();
   const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
@@ -676,6 +776,7 @@ function fillTransactionSelects() {
     p => `${p.sku} — ${p.product_name}`,
     'เลือกสินค้า'
   );
+  renderSelectedProductPreview();
 
   const sortedLocations = [...locationsData].sort((a, b) =>
     a.location_code.localeCompare(b.location_code)
@@ -721,39 +822,46 @@ function selectProductByBarcode(code) {
   const normalized = String(code || "").trim();
 
   if (!normalized) {
-    setStatus("scanStatus", "กรุณาสแกนหรือกรอก Barcode", true);
+    setStatus("scanStatus", "กรุณาสแกน Barcode หรือกรอก SKU สินค้า", true);
     return false;
   }
 
-  const barcodeMatches = productsData.filter(
-    p => String(p.barcode || "").trim().toLowerCase() === normalized.toLowerCase()
+  // Accept either an exact Barcode or an exact SKU when entered manually.
+  const searchValue = normalized.toLowerCase();
+  const exactMatches = productsData.filter(p =>
+    String(p.barcode || "").trim().toLowerCase() === searchValue ||
+    String(p.sku || "").trim().toLowerCase() === searchValue
   );
-  const matches = barcodeMatches.filter(p => p.is_active === true);
+  const matches = exactMatches.filter(p => p.is_active === true);
 
   if (matches.length === 0) {
-    const hasInactiveMatch = barcodeMatches.some(p => p.is_active !== true);
+    const hasInactiveMatch = exactMatches.some(p => p.is_active !== true);
     setStatus(
       "scanStatus",
       hasInactiveMatch
-        ? `สินค้า Barcode: ${normalized} ถูกปิดใช้งาน ไม่สามารถทำรายการได้`
-        : `ไม่พบสินค้า Barcode: ${normalized}`,
+        ? `สินค้า SKU/Barcode: ${normalized} ถูกปิดใช้งาน ไม่สามารถทำรายการได้`
+        : `ไม่พบสินค้า SKU/Barcode: ${normalized}`,
       true
     );
     return false;
   }
 
   if (matches.length > 1) {
-    setStatus("scanStatus", "พบ Barcode ซ้ำในฐานข้อมูล กรุณาตรวจสอบข้อมูลสินค้า", true);
+    setStatus("scanStatus", "พบ SKU/Barcode ซ้ำในฐานข้อมูล กรุณาตรวจสอบข้อมูลสินค้า", true);
     return false;
   }
 
   const product = matches[0];
+  // Keep the search term to SKU only so the product remains in the filtered select.
   $("transactionProductSearch").value = product.sku;
   fillTransactionSelects();
   $("transactionProduct").value = product.id;
+  $("productPickerResults").classList.add("hidden");
+  renderSelectedProductPreview();
   updateSourceLocationOptions();
   updateTransactionPreview();
-  $("barcodeScanInput").value = normalized;
+  // Normalize the manual entry to the product SKU after successful selection.
+  $("barcodeScanInput").value = product.sku;
 
   setStatus(
     "scanStatus",
@@ -860,11 +968,20 @@ $("stopScanBtn").addEventListener("click", stopScanner);
         )
       : sortedLocations;
 
+    const selectedProduct = productsData.find(product => product.id === productId);
     fillSelect(
       'sourceLocation',
       availableLocations,
       'id',
-      location => `${location.location_code} (ชั้น ${location.floor_no})`,
+      location => {
+        const balance = balanceData.find(item =>
+          item.product_id === productId && item.location_id === location.id
+        );
+        const stockLabel = (type === 'OUT' || type === 'MOVE')
+          ? ` — คงเหลือ ${Number(balance?.quantity || 0).toLocaleString()} ${selectedProduct?.unit || 'ชิ้น'}`
+          : '';
+        return `${location.location_code} (ชั้น ${location.floor_no})${stockLabel}`;
+      },
       availableLocations.length ? 'เลือกต้นทาง' : 'ไม่พบตำแหน่งที่มีสินค้า'
     );
 
@@ -875,9 +992,43 @@ $("stopScanBtn").addEventListener("click", stopScanner);
 
   function updateTransactionPreview() {
     const panel = $('transactionPreview');
+    // In the withdrawal wizard, show stock validation/preview only on the final review step.
+    // Updating location options during step 2 must not display a stale location-specific error.
+    if (document.body.classList.contains('withdrawal-modal-active') && withdrawalStep !== wizardStepCount()) {
+      panel.classList.add('hidden');
+      panel.innerHTML = '';
+      return;
+    }
     const type = $('transactionType').value;
     const product = productsData.find(p => p.id === $('transactionProduct').value);
-    if (!product || type !== 'OUT') { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    if (!product) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    if (type === 'IN') {
+      panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนรับสินค้าเข้า</h3><div class="preview-layout">' +
+        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
+        '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
+        '<div>จำนวนรับเข้า: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>Location ปลายทาง: ' + escapeHtml(locationName($('destinationLocation').value)) + '</div></div></div>';
+      panel.classList.remove('hidden');
+      return;
+    }
+    if (type === 'MOVE') {
+      const sourceId = $('sourceLocation').value;
+      const destinationId = $('destinationLocation').value;
+      const quantity = Number($('quantity').value || 0);
+      const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
+      const current = Number(row?.quantity || 0);
+      const valid = !!sourceId && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= current;
+      panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนย้ายตำแหน่ง</h3><div class="preview-layout">' +
+        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
+        '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
+        '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (คงเหลือ ' + current.toLocaleString() + ')</div>' +
+        '<div>ปลายทาง: ' + escapeHtml(locationName(destinationId)) + '</div>' +
+        '<div><strong>' + (valid ? 'คงเหลือที่ต้นทางหลังย้าย: ' + (current - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนสินค้า') + '</strong></div></div></div>';
+      panel.classList.remove('hidden');
+      return;
+    }
+    if (type !== 'OUT') { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
     const sourceId = $('sourceLocation').value;
     const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
     const current = Number(row?.quantity || 0);
@@ -902,11 +1053,18 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     const type = $('transactionType').value;
     const needsSource = type === 'OUT' || type === 'MOVE';
     const needsDestination = type === 'IN' || type === 'MOVE';
+    const isWithdrawalWizard = document.body.classList.contains('withdrawal-modal-active');
 
-    $('sourceField').classList.toggle('hidden', !needsSource);
-    $('destinationField').classList.toggle('hidden', !needsDestination);
-    $('sourceLocation').required = needsSource;
-    $('destinationLocation').required = needsDestination;
+    // While the OUT wizard is open, only setWithdrawalStep controls field visibility.
+    // Refreshing product options after a scan must not reveal the Location field early.
+    if (!isWithdrawalWizard) {
+      $('sourceField').classList.toggle('hidden', !needsSource);
+      $('destinationField').classList.toggle('hidden', !needsDestination);
+    }
+    const sourceStep = wizardType === 'IN' ? -1 : 3;
+    const destinationStep = wizardType === 'IN' ? 3 : wizardType === 'MOVE' ? 4 : -1;
+    $('sourceLocation').required = isWithdrawalWizard ? withdrawalStep === sourceStep : needsSource;
+    $('destinationLocation').required = isWithdrawalWizard ? withdrawalStep === destinationStep : needsDestination;
     updateSourceLocationOptions();
     updateTransactionPreview();
   }
@@ -1115,6 +1273,160 @@ $('logoutBtn').addEventListener('click', async () => {
     }
   }
 
+
+  let withdrawalStep = 1;
+  let wizardType = 'OUT';
+  const wizardTypeNames = { OUT: 'เบิกสินค้า', IN: 'รับสินค้าเข้า', MOVE: 'ย้ายตำแหน่ง' };
+  const wizardSteps = {
+    OUT: ['เลือกสินค้า', 'ระบุจำนวนเบิก', 'เลือกตำแหน่งต้นทาง', 'ตรวจสอบรายการ'],
+    IN: ['เลือกสินค้า', 'ระบุจำนวนรับเข้า', 'เลือกตำแหน่งปลายทาง', 'ตรวจสอบรายการ'],
+    MOVE: ['เลือกสินค้า', 'ระบุจำนวนย้าย', 'เลือกตำแหน่งต้นทาง', 'เลือกตำแหน่งปลายทาง', 'ตรวจสอบรายการ']
+  };
+  function wizardStepCount() { return wizardSteps[wizardType].length; }
+  function setWithdrawalStep(step) {
+    withdrawalStep = Math.max(1, Math.min(wizardStepCount(), step));
+    const isWizard = document.body.classList.contains('withdrawal-modal-active');
+    if (!isWizard) return;
+    const total = wizardStepCount();
+    const sourceStep = wizardType === 'IN' ? -1 : 3;
+    const destinationStep = wizardType === 'IN' ? 3 : wizardType === 'MOVE' ? 4 : -1;
+    const reviewStep = total;
+    const visibility = {
+      barcodeField: withdrawalStep === 1,
+      productField: withdrawalStep === 1,
+      quantityField: withdrawalStep === 2,
+      sourceField: withdrawalStep === sourceStep,
+      destinationField: withdrawalStep === destinationStep,
+      notesField: withdrawalStep === reviewStep,
+      transactionPreview: withdrawalStep === reviewStep
+    };
+    Object.entries(visibility).forEach(([id, visible]) => {
+      const element = $(id);
+      if (element) element.classList.toggle('hidden', !visible);
+    });
+    $('transactionProduct').required = false;
+    $('quantity').required = false;
+    $('sourceLocation').required = withdrawalStep === sourceStep;
+    $('destinationLocation').required = withdrawalStep === destinationStep;
+    $('withdrawalStepTitle').textContent = withdrawalStep + '. ' + wizardSteps[wizardType][withdrawalStep - 1];
+    $('withdrawalStepLabel').textContent = 'ขั้นที่ ' + withdrawalStep + ' จาก ' + total;
+    $('withdrawalProgress').querySelectorAll('span').forEach((bar, index) => {
+      bar.classList.toggle('active', index < withdrawalStep);
+      bar.classList.toggle('hidden', index >= total);
+    });
+    $('withdrawalBackBtn').classList.toggle('hidden', withdrawalStep === 1);
+    $('withdrawalNextBtn').classList.toggle('hidden', withdrawalStep === total);
+    $('submitTransaction').classList.toggle('hidden', withdrawalStep !== total);
+    $('transactionStatus').textContent = '';
+    if (withdrawalStep === 1) {
+      $('transactionProductSearch').focus();
+      renderProductPickerResults();
+    } else if (withdrawalStep === 2) {
+      $('quantity').focus();
+    } else if (withdrawalStep === sourceStep) {
+      updateSourceLocationOptions();
+      $('sourceLocation').focus();
+    } else if (withdrawalStep === destinationStep) {
+      $('destinationLocation').focus();
+    } else {
+      updateTransactionPreview();
+    }
+  }
+
+  async function closeWithdrawalWizard() {
+    if (scannerRunning || html5QrCode) await stopScanner();
+    document.body.classList.remove('withdrawal-modal-active');
+    $('transactionPanel').classList.add('hidden');
+    $('withdrawalWizardHeader').classList.add('hidden');
+    $('withdrawalWizardActions').classList.add('hidden');
+    $('transactionPanelTitle').textContent = 'ทำรายการสต๊อก';
+    $('transactionPanelDescription').textContent = 'เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง';
+    $('transactionProduct').required = true;
+    $('quantity').required = true;
+    $('destinationLocation').required = true;
+    updateTransactionFields();
+  }
+
+  function openWithdrawalWizard(type) {
+    wizardType = type;
+    $('transactionType').value = type;
+    document.body.classList.add('withdrawal-modal-active');
+    $('withdrawalWizardHeader').classList.remove('hidden');
+    $('withdrawalWizardActions').classList.remove('hidden');
+    $('transactionPanelTitle').textContent = wizardTypeNames[type];
+    $('transactionPanelDescription').textContent = type === 'OUT'
+      ? 'ทำตามขั้นตอนทีละข้อ และตรวจสอบรายการก่อนตัดสต๊อก'
+      : type === 'IN'
+        ? 'ทำตามขั้นตอนทีละข้อ และตรวจสอบรายการก่อนเพิ่มสต๊อก'
+        : 'ทำตามขั้นตอนทีละข้อ และตรวจสอบต้นทาง/ปลายทางก่อนย้ายสต๊อก';
+    $('transactionTypeField').classList.add('hidden');
+    $('transactionPreview').classList.add('hidden');
+    setWithdrawalStep(1);
+  }
+
+  $('withdrawalCancelBtn').addEventListener('click', closeWithdrawalWizard);
+  $('withdrawalBackBtn').addEventListener('click', () => {
+    if (withdrawalStep > 1) setWithdrawalStep(withdrawalStep - 1);
+  });
+  $('withdrawalNextBtn').addEventListener('click', () => {
+    const total = wizardStepCount();
+    if (withdrawalStep === 1) {
+      if (!$('transactionProduct').value) {
+        setStatus('transactionStatus', 'กรุณาสแกนหรือเลือกสินค้าก่อนดำเนินการต่อ', true);
+        return;
+      }
+      setWithdrawalStep(2);
+      return;
+    }
+    if (withdrawalStep === 2) {
+      const quantity = Number($('quantity').value);
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+        setStatus('transactionStatus', 'กรุณาระบุจำนวนเป็นจำนวนเต็มมากกว่า 0', true);
+        $('quantity').focus();
+        return;
+      }
+      setWithdrawalStep(3);
+      return;
+    }
+    const sourceStep = wizardType === 'IN' ? -1 : 3;
+    const destinationStep = wizardType === 'IN' ? 3 : wizardType === 'MOVE' ? 4 : -1;
+    if (withdrawalStep === sourceStep) {
+      const productId = $('transactionProduct').value;
+      const sourceId = $('sourceLocation').value;
+      const quantity = Number($('quantity').value);
+      const balance = balanceData.find(item => item.product_id === productId && item.location_id === sourceId);
+      const available = Number(balance?.quantity || 0);
+      if (!sourceId) {
+        setStatus('transactionStatus', 'กรุณาเลือก Location ต้นทาง', true);
+        return;
+      }
+      if (quantity > available) {
+        setStatus('transactionStatus', 'จำนวนที่ระบุเกินยอดคงเหลือของ Location นี้ (' + available + ') กรุณาย้อนกลับไปแก้จำนวน หรือเลือก Location อื่น', true);
+        return;
+      }
+      setWithdrawalStep(withdrawalStep + 1);
+      return;
+    }
+    if (withdrawalStep === destinationStep) {
+      if (!$('destinationLocation').value) {
+        setStatus('transactionStatus', 'กรุณาเลือก Location ปลายทาง', true);
+        return;
+      }
+      if (wizardType === 'MOVE' && $('sourceLocation').value === $('destinationLocation').value) {
+        setStatus('transactionStatus', 'ต้นทางและปลายทางต้องไม่ใช่ตำแหน่งเดียวกัน', true);
+        return;
+      }
+      setWithdrawalStep(withdrawalStep + 1);
+      return;
+    }
+    if (withdrawalStep < total) setWithdrawalStep(withdrawalStep + 1);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('withdrawal-modal-active')) {
+      closeWithdrawalWizard();
+    }
+  });
+
   $('warehouseMenu').querySelectorAll('[data-warehouse-action]').forEach(button => {
     button.addEventListener('click', () => {
       const action = button.getAttribute('data-warehouse-action');
@@ -1150,21 +1462,73 @@ $('logoutBtn').addEventListener('click', async () => {
         return;
       }
 
+      if (action === 'OUT' || action === 'IN' || action === 'MOVE') {
+        showWorkflowPanel('transactionPanel');
+        $('transactionType').value = action;
+        // Reset the transaction wizard so every workflow starts fresh.
+        $('transactionProductSearch').value = '';
+        $('productPickerResults').classList.add('hidden');
+        $('selectedProductPreview').classList.add('hidden');
+        $('barcodeScanInput').value = '';
+        $('transactionProduct').value = '';
+        $('quantity').value = '';
+        $('notes').value = '';
+        $('sourceLocation').value = '';
+        $('destinationLocation').value = '';
+        setStatus('scanStatus', '');
+        setStatus('transactionStatus', '');
+        fillTransactionSelects();
+        updateTransactionFields();
+        $('transactionProduct').required = false;
+        $('quantity').required = false;
+        $('destinationLocation').required = false;
+        openWithdrawalWizard(action);
+        return;
+      }
+
+      // Other warehouse actions are handled above.
       showWorkflowPanel('transactionPanel');
       $('transactionType').value = action;
+      $('withdrawalWizardHeader').classList.add('hidden');
+      $('withdrawalWizardActions').classList.add('hidden');
+      document.body.classList.remove('withdrawal-modal-active');
+      $('transactionTypeField').classList.remove('hidden');
+      $('notesField').classList.remove('hidden');
+      $('barcodeField').classList.remove('hidden');
+      $('productField').classList.remove('hidden');
+      $('quantityField').classList.remove('hidden');
+      $('transactionPreview').classList.add('hidden');
+      $('submitTransaction').classList.remove('hidden');
+      $('transactionProduct').required = true;
+      $('quantity').required = true;
+      $('transactionPanelTitle').textContent = 'ทำรายการสต๊อก';
+      $('transactionPanelDescription').textContent = 'เลือกประเภทธุรกรรมและตรวจสอบสินค้า/ตำแหน่งก่อนยืนยันทุกครั้ง';
+      fillTransactionSelects();
       updateTransactionFields();
       $('transactionProduct').focus();
-      setStatus('transactionStatus', action === 'OUT'
-        ? 'เลือกสินค้า แล้วระบบจะแสดงเฉพาะตำแหน่งที่มีสินค้าคงเหลือ'
-        : action === 'MOVE'
-          ? 'เลือกสินค้าและตำแหน่งต้นทาง/ปลายทางเพื่อตรวจสอบก่อนย้าย'
-          : 'เลือกสินค้า จำนวน และตำแหน่งปลายทางสำหรับรับเข้า');
+      setStatus('transactionStatus', action === 'MOVE'
+        ? 'เลือกสินค้าและตำแหน่งต้นทาง/ปลายทางเพื่อตรวจสอบก่อนย้าย'
+        : 'เลือกสินค้า จำนวน และตำแหน่งปลายทางสำหรับรับเข้า');
     });
   });
 
   $('catalogSearch').addEventListener('input', renderProductCatalog);
-  $('transactionProductSearch').addEventListener('input', () => { fillTransactionSelects(); updateTransactionPreview(); });
-  $('transactionProduct').addEventListener('change', () => { updateSourceLocationOptions(); updateTransactionPreview(); });
+  $('transactionProductSearch').addEventListener('input', () => {
+    fillTransactionSelects();
+    renderProductPickerResults();
+    updateTransactionPreview();
+  });
+  $('transactionProductSearch').addEventListener('focus', renderProductPickerResults);
+  $('transactionProduct').addEventListener('change', () => {
+    renderSelectedProductPreview();
+    updateSourceLocationOptions();
+    updateTransactionPreview();
+  });
+  document.addEventListener('click', event => {
+    if (!event.target.closest('#transactionProductSearch') && !event.target.closest('#productPickerResults')) {
+      $('productPickerResults').classList.add('hidden');
+    }
+  });
   $('sourceLocation').addEventListener('change', updateTransactionPreview);
   $('quantity').addEventListener('input', updateTransactionPreview);
   $('search').addEventListener('input', renderStock);
@@ -1264,6 +1628,7 @@ const destinationId =
       $('notes').value = '';
       setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
       await refreshAll();
+      if (type === 'OUT') await closeWithdrawalWizard();
     } catch (error) {
       setStatus('transactionStatus', 'บันทึกไม่สำเร็จ: ' + error.message, true);
     } finally {
