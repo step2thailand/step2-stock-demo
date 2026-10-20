@@ -700,7 +700,11 @@ function selectProductByBarcode(code) {
   }
 
   const product = matches[0];
+  $("transactionProductSearch").value = product.sku;
+  fillTransactionSelects();
   $("transactionProduct").value = product.id;
+  updateSourceLocationOptions();
+  updateTransactionPreview();
   $("barcodeScanInput").value = normalized;
 
   setStatus(
