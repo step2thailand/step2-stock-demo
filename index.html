@@ -2049,6 +2049,61 @@ $('refreshStatusBtn').addEventListener('click', async () => {
   renderStatusProductOptions();
   await loadStockStatusHistory();
 });
+
+  let statusWizardStep = 1;
+  const statusWizardStepNames = ['เลือกสินค้า', 'เลือก Location และสถานะปัจจุบัน', 'ระบุสถานะใหม่และจำนวน', 'ตรวจสอบรายการ'];
+  ['statusProduct','statusLocation','statusFrom','statusTo','statusQuantity'].forEach(id => { $(id).required = false; });
+  function statusWizardReviewHtml() {
+    const product = productsData.find(p => p.id === $('statusProduct').value);
+    const balance = balanceData.find(b => b.product_id === $('statusProduct').value && b.location_id === $('statusLocation').value);
+    return '<h3>ตรวจสอบรายการก่อนยืนยัน</h3>' +
+      '<p><strong>สินค้า:</strong> ' + escapeHtml(product ? product.sku + ' — ' + product.product_name : 'ยังไม่ได้เลือก') + '</p>' +
+      '<p><strong>Location:</strong> ' + escapeHtml(locationName($('statusLocation').value)) + '</p>' +
+      '<p><strong>จำนวน:</strong> ' + escapeHtml($('statusQuantity').value) + '</p>' +
+      '<p><strong>เปลี่ยนสถานะ:</strong> ' + escapeHtml(stockStatusLabels[$('statusFrom').value]) + ' → ' + escapeHtml(stockStatusLabels[$('statusTo').value]) + '</p>' +
+      '<p><strong>หมายเหตุ:</strong> ' + escapeHtml($('statusNotes').value.trim() || '—') + '</p>' +
+      '<hr><p><strong>ยอดก่อนเปลี่ยน</strong></p>' +
+      '<p>สินค้าจริง: ' + Number(balance?.quantity || 0).toLocaleString() + ' | พร้อมขาย: ' + availableQty(balance).toLocaleString() +
+      ' | จองแล้ว: ' + Number(balance?.reserved_quantity || 0).toLocaleString() + ' | เสียหาย: ' + Number(balance?.damaged_quantity || 0).toLocaleString() + '</p>' +
+      '<p class="muted">การเปลี่ยนสถานะไม่เปลี่ยนยอดสินค้าจริงรวม</p>';
+  }
+  function setStatusWizardStep(step) {
+    statusWizardStep = Math.max(1, Math.min(4, step));
+    $('statusWizardTitle').textContent = statusWizardStep + '. ' + statusWizardStepNames[statusWizardStep - 1];
+    $('statusWizardStepLabel').textContent = 'ขั้นที่ ' + statusWizardStep + ' จาก 4';
+    $('statusWizardProgress').querySelectorAll('span').forEach((bar, index) => bar.classList.toggle('active', index < statusWizardStep));
+    document.querySelectorAll('#stockStatusForm .status-wizard-field').forEach(field => field.classList.toggle('hidden', Number(field.dataset.statusStep) !== statusWizardStep));
+    $('statusWizardReview').classList.toggle('hidden', statusWizardStep !== 4);
+    if (statusWizardStep === 4) $('statusWizardReview').innerHTML = statusWizardReviewHtml();
+    $('statusWizardBackBtn').disabled = statusWizardStep === 1;
+    $('statusWizardNextBtn').classList.toggle('hidden', statusWizardStep === 4);
+    $('submitStatusChange').classList.toggle('hidden', statusWizardStep !== 4);
+    setStatus('stockStatusMessage', '');
+  }
+  function validateStatusWizardStep() {
+    if (statusWizardStep === 1 && !$('statusProduct').value) {
+      setStatus('stockStatusMessage', 'กรุณาค้นหาและเลือกสินค้าก่อน', true); return false;
+    }
+    if (statusWizardStep === 2) {
+      if (!$('statusLocation').value) { setStatus('stockStatusMessage', 'กรุณาเลือก Location ที่มีสินค้า', true); return false; }
+      const b = balanceData.find(item => item.product_id === $('statusProduct').value && item.location_id === $('statusLocation').value);
+      if (statusQty(b, $('statusFrom').value) < 1) { setStatus('stockStatusMessage', 'สถานะปัจจุบันที่เลือกไม่มีสินค้า กรุณาเลือกสถานะหรือ Location อื่น', true); return false; }
+    }
+    if (statusWizardStep === 3) {
+      const q = Number($('statusQuantity').value);
+      const b = balanceData.find(item => item.product_id === $('statusProduct').value && item.location_id === $('statusLocation').value);
+      if ($('statusFrom').value === $('statusTo').value) { setStatus('stockStatusMessage', 'สถานะต้นทางและปลายทางต้องแตกต่างกัน', true); return false; }
+      if (!Number.isSafeInteger(q) || q <= 0) { setStatus('stockStatusMessage', 'กรุณาระบุจำนวนเต็มมากกว่า 0', true); return false; }
+      if (q > statusQty(b, $('statusFrom').value)) { setStatus('stockStatusMessage', 'จำนวนเกินยอดสถานะ ' + stockStatusLabels[$('statusFrom').value] + ' ที่มีอยู่', true); return false; }
+    }
+    return true;
+  }
+  $('statusWizardNextBtn').addEventListener('click', () => { if (validateStatusWizardStep()) setStatusWizardStep(statusWizardStep + 1); });
+  $('statusWizardBackBtn').addEventListener('click', () => setStatusWizardStep(statusWizardStep - 1));
+  $('statusWizardCancelBtn').addEventListener('click', closeWorkflowPopup);
+  $('statusQuantity').addEventListener('input', () => { if (statusWizardStep === 4) $('statusWizardReview').innerHTML = statusWizardReviewHtml(); });
+  $('statusNotes').addEventListener('input', () => { if (statusWizardStep === 4) $('statusWizardReview').innerHTML = statusWizardReviewHtml(); });
+  setStatusWizardStep(1);
 $('stockStatusForm').addEventListener('submit', async event => {
   event.preventDefault();
   if (busy || !currentUserId) return;
@@ -2072,7 +2127,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
     return;
   }
   const product = productsData.find(p => p.id === productId);
-  if (!confirm('ยืนยันเปลี่ยนสถานะสินค้า?\nสินค้า: ' + (product?.sku || '') + '\nLocation: ' + locationName(locationId) + '\nจำนวน: ' + quantity + '\nจาก: ' + stockStatusLabels[fromStatus] + '\nเป็น: ' + stockStatusLabels[toStatus])) return;
+  if (statusWizardStep !== 4 || !validateStatusWizardStep()) return;
   const button = $('submitStatusChange');
   button.disabled = true;
   setStatus('stockStatusMessage', 'กำลังบันทึกการเปลี่ยนสถานะ...');
