@@ -720,64 +720,144 @@
   }
 
 
+const CATALOG_BRANDS = {
+  'Step2': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ'],
+  'วังอนุบาล': ['เครื่องเล่นสนาม','มุมห้องสื่อการเรียนรู้','เฟอร์นิเจอร์','ม้ากระดก โยกเยกสปริง','อะไหล่ต่างๆ'],
+  'FunTime': [],
+  'Simplay3': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ']
+};
 let catalogWizardStep = 1;
 let catalogSelectedBrand = '';
 let catalogSelectedCategory = '';
-function productBrand(p) { return String(p.brand_name ?? p.brand ?? p.product_brand ?? p.manufacturer ?? '').trim(); }
-function productCategory(p) { return String(p.category_name ?? p.category ?? p.product_category ?? p.category_label ?? '').trim(); }
-function uniqueProductValues(getter, products = productsData) {
-  return [...new Set(products.filter(p => p.is_active === true).map(getter).filter(Boolean))].sort((a,b) => a.localeCompare(b,'th'));
+function productBrand(p) {
+  return String(p.brand_name ?? p.brand ?? p.product_brand ?? p.manufacturer ?? p.brandName ?? '').trim();
+}
+function productCategory(p) {
+  return String(p.category_name ?? p.category ?? p.product_category ?? p.category_label ?? p.productCategory ?? '').trim();
+}
+function normalizedCatalogValue(value) {
+  return String(value || '').trim().toLowerCase().replace(/[\\s_-]+/g,'');
+}
+function catalogBrandMatches(p, brand) {
+  const actual = normalizedCatalogValue(productBrand(p));
+  const aliases = {
+    'Step2': ['step2','step','step2thailand'],
+    'วังอนุบาล': ['วังอนุบาล','wanganubal','wanganubalinventory'],
+    'FunTime': ['funtime','fun time'],
+    'Simplay3': ['simplay3','simplay']
+  };
+  return (aliases[brand] || [brand]).some(alias => actual === normalizedCatalogValue(alias));
 }
 function populateCatalogBrands() {
-  const select = $('catalogBrandSelect');
-  const brands = uniqueProductValues(productBrand);
-  select.innerHTML = '<option value="">เลือกแบรนด์สินค้า</option>' + brands.map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>').join('');
-  if (!brands.length) select.innerHTML = '<option value="">ไม่พบข้อมูลแบรนด์ในสินค้า</option>';
+  $('catalogBrandSelect').innerHTML = '<option value="">เลือกแบรนด์สินค้า</option>' +
+    Object.keys(CATALOG_BRANDS).map(brand => '<option value="' + escapeHtml(brand) + '">' + escapeHtml(brand) + '</option>').join('');
   populateCatalogCategories();
 }
 function populateCatalogCategories() {
   const brand = $('catalogBrandSelect').value;
-  const categories = uniqueProductValues(productCategory, productsData.filter(p => p.is_active === true && productBrand(p) === brand));
-  $('catalogCategorySelect').innerHTML = '<option value="">เลือกหมวดหมู่สินค้า</option>' + categories.map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>').join('');
-  if (brand && !categories.length) $('catalogCategorySelect').innerHTML = '<option value="">ไม่พบข้อมูลหมวดหมู่ของแบรนด์นี้</option>';
+  const categories = CATALOG_BRANDS[brand] || [];
+  $('catalogCategorySelect').innerHTML = '<option value="">เลือกหมวดหมู่สินค้า</option>' +
+    categories.map(category => '<option value="' + escapeHtml(category) + '">' + escapeHtml(category) + '</option>').join('');
 }
 function setCatalogWizardStep(step) {
   catalogWizardStep = Math.max(1, Math.min(3, step));
-  document.querySelectorAll('[data-catalog-step]').forEach(s => s.classList.toggle('hidden', Number(s.dataset.catalogStep) !== catalogWizardStep));
-  $('catalogWizardTitle').textContent = ['1. เลือกแบรนด์สินค้า','2. เลือกหมวดหมู่สินค้า','3. รายการสินค้า'][catalogWizardStep - 1];
-  $('catalogWizardStepLabel').textContent = 'ขั้นที่ ' + catalogWizardStep + ' จาก 3';
-  $('catalogWizardProgress').querySelectorAll('span').forEach((bar,i) => bar.classList.toggle('active', i < catalogWizardStep));
+  document.querySelectorAll('[data-catalog-step]').forEach(section => {
+    section.classList.toggle('hidden', Number(section.dataset.catalogStep) !== catalogWizardStep);
+  });
+  const isFunTime = catalogSelectedBrand === 'FunTime';
+  const totalSteps = isFunTime ? 2 : 3;
+  const displayedStep = isFunTime && catalogWizardStep === 3 ? 2 : catalogWizardStep;
+  const titles = isFunTime
+    ? ['1. เลือกแบรนด์สินค้า','', '2. สินค้าทั้งหมด — FunTime']
+    : ['1. เลือกแบรนด์สินค้า','2. เลือกหมวดหมู่สินค้า','3. รายการสินค้า'];
+  $('catalogWizardTitle').textContent = titles[catalogWizardStep - 1] || 'รายการสินค้า';
+  $('catalogWizardStepLabel').textContent = 'ขั้นที่ ' + displayedStep + ' จาก ' + totalSteps;
+  $('catalogWizardProgress').querySelectorAll('span').forEach((bar,index) => {
+    bar.classList.toggle('active', isFunTime ? index < displayedStep : index < catalogWizardStep);
+    bar.classList.toggle('hidden', isFunTime && index === 1);
+  });
   $('catalogBackBtn').disabled = catalogWizardStep === 1;
-  $('catalogNextBtn').textContent = catalogWizardStep === 1 ? 'เลือกหมวดหมู่ →' : catalogWizardStep === 2 ? 'แสดงสินค้า →' : 'เลือกใหม่';
+  $('catalogNextBtn').textContent = catalogWizardStep === 1 ? 'เลือกหมวดหมู่ →' : catalogWizardStep === 2 ? 'แสดงสินค้า →' : 'เลือกแบรนด์ใหม่';
   $('catalogNextBtn').classList.toggle('secondary', catalogWizardStep === 3);
 }
 function resetCatalogWizard() {
-  catalogSelectedBrand = ''; catalogSelectedCategory = '';
-  $('catalogBrandSelect').value = ''; populateCatalogCategories(); $('catalogCategorySelect').value = '';
-  $('productCatalogGrid').innerHTML = ''; setStatus('catalogStatus',''); setCatalogWizardStep(1);
+  catalogSelectedBrand = '';
+  catalogSelectedCategory = '';
+  $('catalogBrandSelect').value = '';
+  populateCatalogCategories();
+  $('catalogCategorySelect').value = '';
+  $('productCatalogGrid').innerHTML = '';
+  setStatus('catalogStatus','');
+  setCatalogWizardStep(1);
 }
-$('catalogBrandSelect').addEventListener('change', () => { catalogSelectedBrand = $('catalogBrandSelect').value; populateCatalogCategories(); });
-$('catalogCategorySelect').addEventListener('change', () => { catalogSelectedCategory = $('catalogCategorySelect').value; });
-$('catalogBackBtn').addEventListener('click', () => setCatalogWizardStep(catalogWizardStep - 1));
+$('catalogBrandSelect').addEventListener('change', () => {
+  catalogSelectedBrand = $('catalogBrandSelect').value;
+  catalogSelectedCategory = '';
+  populateCatalogCategories();
+  if (!catalogSelectedBrand) {
+    $('productCatalogGrid').innerHTML = '';
+    setStatus('catalogStatus','');
+    setCatalogWizardStep(1);
+  } else if (CATALOG_BRANDS[catalogSelectedBrand].length === 0) {
+    // FunTime has no category step: selecting the brand shows every product for that brand immediately.
+    renderProductCatalog();
+    setCatalogWizardStep(3);
+  } else {
+    setCatalogWizardStep(2);
+    setStatus('catalogStatus','');
+  }
+});
+$('catalogCategorySelect').addEventListener('change', () => {
+  catalogSelectedCategory = $('catalogCategorySelect').value;
+});
+$('catalogBackBtn').addEventListener('click', () => {
+  if (catalogWizardStep === 3 && catalogSelectedBrand === 'FunTime') {
+    resetCatalogWizard();
+  } else {
+    setCatalogWizardStep(catalogWizardStep - 1);
+  }
+});
 $('catalogNextBtn').addEventListener('click', () => {
   if (catalogWizardStep === 1) {
-    if (!$('catalogBrandSelect').value) { setStatus('catalogStatus','กรุณาเลือกแบรนด์สินค้า',true); return; }
-    populateCatalogCategories(); setCatalogWizardStep(2); setStatus('catalogStatus','');
+    if (!$('catalogBrandSelect').value) {
+      setStatus('catalogStatus','กรุณาเลือกแบรนด์สินค้า',true);
+      return;
+    }
+    // For FunTime, the brand change handler already opens the complete product list.
+    if (CATALOG_BRANDS[$('catalogBrandSelect').value].length) {
+      populateCatalogCategories();
+      setCatalogWizardStep(2);
+      setStatus('catalogStatus','');
+    }
   } else if (catalogWizardStep === 2) {
-    if (!$('catalogCategorySelect').value) { setStatus('catalogStatus','กรุณาเลือกหมวดหมู่สินค้า',true); return; }
-    catalogSelectedBrand = $('catalogBrandSelect').value; catalogSelectedCategory = $('catalogCategorySelect').value;
-    renderProductCatalog(); setCatalogWizardStep(3);
-  } else resetCatalogWizard();
+    if (!$('catalogCategorySelect').value) {
+      setStatus('catalogStatus','กรุณาเลือกหมวดหมู่สินค้า',true);
+      return;
+    }
+    catalogSelectedBrand = $('catalogBrandSelect').value;
+    catalogSelectedCategory = $('catalogCategorySelect').value;
+    renderProductCatalog();
+    setCatalogWizardStep(3);
+  } else {
+    resetCatalogWizard();
+  }
 });
 function renderProductCatalog() {
-  const filtered = productsData.filter(p => p.is_active === true && productBrand(p) === catalogSelectedBrand && productCategory(p) === catalogSelectedCategory);
+  const brand = catalogSelectedBrand;
+  const category = catalogSelectedCategory;
+  const filtered = productsData.filter(p => {
+    if (p.is_active === false || !catalogBrandMatches(p, brand)) return false;
+    if (brand === 'FunTime') return true;
+    return productCategory(p) === category;
+  });
   $('productCatalogGrid').innerHTML = filtered.length ? filtered.map(p =>
     '<article class="product-card">' +
-    (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
-    '<div class="product-card-meta">แบรนด์: ' + escapeHtml(productBrand(p)) + '</div><div class="product-card-meta">หมวดหมู่: ' + escapeHtml(productCategory(p)) + '</div>' +
+    (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=\\'none\\'">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
+    '<div class="product-card-meta">แบรนด์: ' + escapeHtml(productBrand(p) || brand) + '</div>' +
+    (brand === 'FunTime' ? '' : '<div class="product-card-meta">หมวดหมู่: ' + escapeHtml(productCategory(p) || category) + '</div>') +
     '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div><div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
     '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div><div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
-  ).join('') : '<p class="muted">ไม่พบสินค้าในแบรนด์และหมวดหมู่ที่เลือก หรือข้อมูลแบรนด์/หมวดหมู่ยังไม่ถูกกรอกในสินค้า</p>';
+  ).join('') : '<p class="muted">ไม่พบสินค้าในแบรนด์/หมวดหมู่ที่เลือก หรือข้อมูลสินค้าในฐานข้อมูลยังไม่มีแบรนด์และหมวดหมู่ที่ตรงกัน กรุณาตรวจสอบข้อมูลสินค้า</p>';
   setStatus('catalogStatus','แสดง ' + filtered.length + ' รายการสินค้า');
 }
 
