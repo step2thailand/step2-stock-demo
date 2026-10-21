@@ -1075,6 +1075,7 @@ function fillTransactionSelects() {
   
 let html5QrCode = null;
 let scannerRunning = false;
+let transactionScanResultHandled = false;
 
 function findProductByBarcode(code) {
   const normalized = String(code || "").trim().toLowerCase();
@@ -1173,6 +1174,7 @@ $("barcodeScanInput").addEventListener("keydown", event => {
 
 $("startScanBtn").addEventListener("click", async () => {
   if (scannerRunning || html5QrCode) return;
+  transactionScanResultHandled = false;
   prepareScanFeedback();
 
   if (!window.Html5Qrcode) {
@@ -1192,12 +1194,13 @@ $("startScanBtn").addEventListener("click", async () => {
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 250, height: 150 } },
       async decodedText => {
+        // Handle only the first decoded result per scan attempt. Invalid barcodes
+        // must stop the camera too, otherwise each video frame can trigger another beep.
+        if (transactionScanResultHandled) return;
+        transactionScanResultHandled = true;
         const found = selectProductByBarcode(decodedText);
         playScanFeedback(found);
-
-        if (found) {
-          await stopScanner();
-        }
+        await stopScanner();
       },
       () => {}
     );
@@ -2486,6 +2489,7 @@ $('statusBarcodeInput').addEventListener('keydown', event => {
 });
 let statusHtml5QrCode = null;
 let statusScannerRunning = false;
+let statusScanResultHandled = false;
 async function stopStatusScanner() {
   if (statusHtml5QrCode) {
     try { if (statusScannerRunning) await statusHtml5QrCode.stop(); } catch (error) { console.warn('หยุดกล้องจัดการสถานะ:', error); }
@@ -2499,6 +2503,7 @@ async function stopStatusScanner() {
 }
 $('statusStartScanBtn').addEventListener('click', async () => {
   if (statusScannerRunning || statusHtml5QrCode) return;
+  statusScanResultHandled = false;
   prepareScanFeedback();
   if (!window.Html5Qrcode) { setStatus('statusScanMessage', 'โหลดระบบสแกนไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ', true); return; }
   $('statusScanReader').classList.remove('hidden');
@@ -2508,9 +2513,12 @@ $('statusStartScanBtn').addEventListener('click', async () => {
   statusHtml5QrCode = new Html5Qrcode('statusScanReader');
   try {
     await statusHtml5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 150 } }, async decodedText => {
+      // Process one decoded result only; stop after success or failure to prevent repeated beeps.
+      if (statusScanResultHandled) return;
+      statusScanResultHandled = true;
       const found = selectStatusProductByCode(decodedText);
       playScanFeedback(found);
-      if (found) await stopStatusScanner();
+      await stopStatusScanner();
     }, () => {});
     statusScannerRunning = true;
     setStatus('statusScanMessage', 'เปิดกล้องแล้ว กรุณาหันกล้องไปที่ Barcode สินค้า');
