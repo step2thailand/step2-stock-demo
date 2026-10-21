@@ -1809,7 +1809,8 @@ $('logoutBtn').addEventListener('click', async () => {
     });
   });
 
-  $('catalogSearch').addEventListener('input', renderProductCatalog);
+  // Optional legacy search field: the current catalog uses the brand/category wizard.
+  if ($('catalogSearch')) $('catalogSearch').addEventListener('input', renderProductCatalog);
   $('transactionProductSearch').addEventListener('input', () => {
     fillTransactionSelects();
     renderProductPickerResults();
