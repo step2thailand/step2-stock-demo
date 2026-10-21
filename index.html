@@ -121,6 +121,15 @@
   .selected-product-preview { display:flex; align-items:center; gap:10px; margin-top:8px; padding:8px; border:1px solid #dbeafe; border-radius:9px; background:#eff6ff; }
   .selected-product-preview img, .selected-product-preview .product-picker-thumb { width:48px; height:48px; object-fit:contain; border-radius:6px; background:white; flex:0 0 48px; }
   .transaction-preview { border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-top:14px; background:#f8fafc; }
+  body.workflow-modal-active { overflow:hidden; }
+  body.workflow-modal-active::before { content:""; position:fixed; inset:0; background:rgba(15,23,42,.58); z-index:1000; }
+  body.workflow-modal-active .workflow-popup-active { display:block !important; position:fixed; z-index:1001; inset:3vh 3vw; width:auto; max-width:1100px; max-height:94vh; overflow:auto; margin:auto; padding:22px; box-shadow:0 20px 60px rgba(15,23,42,.28); }
+  .workflow-popup-close-row { display:flex; justify-content:flex-end; margin:-8px -8px 8px; }
+  .workflow-popup-close { width:auto; min-width:100px; background:#64748b; }
+  body.workflow-modal-active #productManageModal:not(.hidden) { position:fixed; z-index:1003; inset:50% auto auto 50%; transform:translate(-50%,-50%); width:min(620px, calc(100vw - 24px)); max-height:90dvh; overflow:auto; margin:0; box-shadow:0 0 0 100vmax rgba(15,23,42,.38), 0 20px 60px rgba(15,23,42,.35); }
+  @media (max-width:700px) {
+    body.workflow-modal-active .workflow-popup-active { inset:8px; max-height:calc(100dvh - 16px); padding:14px; }
+  }
   body.withdrawal-modal-active { overflow:hidden; }
   body.withdrawal-modal-active::before { content:""; position:fixed; inset:0; background:rgba(15,23,42,.58); z-index:1000; }
   body.withdrawal-modal-active #transactionPanel { display:block !important; position:fixed; z-index:1001; inset:50% auto auto 50%; transform:translate(-50%,-50%); width:min(680px, calc(100vw - 24px)); max-height:calc(100dvh - 24px); overflow:auto; margin:0; padding:22px; box-shadow:0 20px 60px rgba(15,23,42,.28); }
@@ -1333,17 +1342,46 @@ $('logoutBtn').addEventListener('click', async () => {
   $('transactionType').addEventListener('change', updateTransactionFields);
 
   function hideWorkflowPanels() {
-    document.querySelectorAll('.workflow-panel').forEach(panel => panel.classList.add('hidden'));
+    document.querySelectorAll('.workflow-panel').forEach(panel => {
+      panel.classList.add('hidden');
+      panel.classList.remove('workflow-popup-active');
+    });
+    document.body.classList.remove('workflow-modal-active');
+  }
+
+  function closeWorkflowPopup() {
+    hideWorkflowPanels();
+    const modal = $('productManageModal');
+    if (modal) modal.classList.add('hidden');
   }
 
   function showWorkflowPanel(id) {
     hideWorkflowPanels();
     const panel = $(id);
-    if (panel) {
-      panel.classList.remove('hidden');
-      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    if (id !== 'transactionPanel') {
+      panel.classList.add('workflow-popup-active');
+      document.body.classList.add('workflow-modal-active');
+      if (!panel.querySelector('.workflow-popup-close-row')) {
+        const row = document.createElement('div');
+        row.className = 'workflow-popup-close-row';
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'workflow-popup-close';
+        close.textContent = 'ปิด กลับเมนู';
+        close.addEventListener('click', closeWorkflowPopup);
+        row.appendChild(close);
+        panel.insertBefore(row, panel.firstChild);
+      }
     }
   }
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('workflow-modal-active')) {
+      closeWorkflowPopup();
+    }
+  });
 
 
   let withdrawalStep = 1;
