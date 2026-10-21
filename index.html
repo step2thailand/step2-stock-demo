@@ -426,7 +426,10 @@
               <th>ชื่อสินค้า</th>
               <th>Location</th>
               <th>ชั้น</th>
-              <th>จำนวนใน Location</th>
+              <th>สินค้าจริงใน Location</th>
+              <th>พร้อมขาย</th>
+              <th>จองแล้ว</th>
+              <th>เสียหาย</th>
               <th>ยอดรวมทุก Location</th>
             </tr>
           </thead>
@@ -586,7 +589,10 @@
           name: product.product_name,
           location: location.location_code,
           floor: location.floor_no,
-          quantity: balance.quantity
+          quantity: balance.quantity,
+          available: availableQty(balance),
+          reserved: Number(balance.reserved_quantity || 0),
+          damaged: Number(balance.damaged_quantity || 0)
         });
       }
     }
@@ -615,10 +621,13 @@
             <td>${escapeHtml(r.location)}</td>
             <td>${escapeHtml(r.floor)}</td>
             <td>${escapeHtml(r.quantity)}</td>
+            <td>${escapeHtml(r.available)}</td>
+            <td>${escapeHtml(r.reserved)}</td>
+            <td>${escapeHtml(r.damaged)}</td>
             <td><strong>${escapeHtml(total.toLocaleString())}</strong></td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="6">ไม่พบข้อมูลสต๊อก</td></tr>';
+      : '<tr><td colspan="9">ไม่พบข้อมูลสต๊อก</td></tr>';
 
     $('skuCount').textContent = productsData.length.toLocaleString();
     $('stockCount').textContent = balanceData.reduce(
@@ -1106,7 +1115,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       '<div>สินค้าจริงทั้งหมด: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
       '<div>พร้อมขาย: ' + available.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
       '<div>จำนวนที่เบิก: ' + (rawQty ? escapeHtml(rawQty) : '—') + '</div>' +
-      '<div><strong>คงเหลือหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดคงเหลือ' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
+      '<div><strong>พร้อมขายหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดพร้อมขาย' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
       (rawQty && Number.isSafeInteger(qty) && qty > available ? '<div class="error">จำนวนที่เบิกเกินยอดพร้อมขาย</div>' : '') +
       '</div></div>';
     panel.classList.remove('hidden');
