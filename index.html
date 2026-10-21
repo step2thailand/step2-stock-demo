@@ -303,11 +303,27 @@
 
 
 <section class="panel workflow-panel hidden" id="productCatalogPanel">
-  <h2>รายการสินค้าทั้งหมด</h2>
-  <p class="muted">ค้นหาสินค้าด้วย SKU, ชื่อสินค้า หรือ Barcode</p>
-  <div class="toolbar"><input id="catalogSearch" type="search" placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode"></div>
-  <div id="catalogStatus" class="status" role="status"></div>
-  <div id="productCatalogGrid" class="product-catalog-grid"></div>
+  <div class="withdrawal-wizard-header">
+    <div>
+      <h2 id="catalogWizardTitle">1. ค้นหาสินค้า</h2>
+      <p class="muted">ค้นหาสินค้าด้วย SKU ชื่อสินค้า หรือ Barcode แล้วดูรายละเอียดสินค้า</p>
+    </div>
+    <span id="catalogWizardStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 2</span>
+  </div>
+  <div id="catalogWizardProgress" class="withdrawal-progress" aria-hidden="true"><span class="active"></span><span></span></div>
+  <div class="catalog-wizard-step" data-catalog-step="1">
+    <label for="catalogSearch">ค้นหาสินค้า (SKU / ชื่อสินค้า / Barcode)</label>
+    <input id="catalogSearch" type="search" placeholder="พิมพ์ SKU / ชื่อสินค้า / Barcode" autocomplete="off">
+    <p class="muted">กดปุ่มถัดไปเพื่อแสดงรายการสินค้าที่ตรงกับคำค้นหา หรือเว้นว่างเพื่อดูสินค้าทั้งหมด</p>
+  </div>
+  <div class="catalog-wizard-step hidden" data-catalog-step="2">
+    <div id="catalogStatus" class="status" role="status"></div>
+    <div id="productCatalogGrid" class="product-catalog-grid"></div>
+  </div>
+  <div class="withdrawal-wizard-actions">
+    <button id="catalogBackBtn" type="button" class="secondary" disabled>ย้อนกลับ</button>
+    <button id="catalogNextBtn" type="button">แสดงรายการสินค้า →</button>
+  </div>
 </section>
 
 <section id="productManagementSection" class="panel workflow-panel hidden">
@@ -697,6 +713,44 @@
     }
   }
 
+
+let catalogWizardStep = 1;
+
+function setCatalogWizardStep(step) {
+  catalogWizardStep = Math.max(1, Math.min(2, step));
+  document.querySelectorAll('[data-catalog-step]').forEach(section => {
+    section.classList.toggle('hidden', Number(section.dataset.catalogStep) !== catalogWizardStep);
+  });
+  $('catalogWizardTitle').textContent = catalogWizardStep === 1 ? '1. ค้นหาสินค้า' : '2. รายการสินค้า';
+  $('catalogWizardStepLabel').textContent = `ขั้นที่ ${catalogWizardStep} จาก 2`;
+  $('catalogWizardProgress').querySelectorAll('span').forEach((bar, index) => {
+    bar.classList.toggle('active', index < catalogWizardStep);
+  });
+  $('catalogBackBtn').disabled = catalogWizardStep === 1;
+  $('catalogNextBtn').textContent = catalogWizardStep === 1 ? 'แสดงรายการสินค้า →' : 'ค้นหาใหม่';
+  $('catalogNextBtn').classList.toggle('secondary', catalogWizardStep === 2);
+}
+
+function resetCatalogWizard() {
+  $('catalogSearch').value = '';
+  setCatalogWizardStep(1);
+  renderProductCatalog();
+}
+
+$('catalogBackBtn').addEventListener('click', () => {
+  setCatalogWizardStep(1);
+  $('catalogSearch').focus();
+});
+
+$('catalogNextBtn').addEventListener('click', () => {
+  if (catalogWizardStep === 1) {
+    renderProductCatalog();
+    setCatalogWizardStep(2);
+  } else {
+    resetCatalogWizard();
+    $('catalogSearch').focus();
+  }
+});
 
 function renderProductCatalog() {
   const search = $('catalogSearch').value.trim().toLowerCase();
@@ -1575,8 +1629,7 @@ $('logoutBtn').addEventListener('click', async () => {
 
       if (action === 'PRODUCTS') {
         showWorkflowPanel('productCatalogPanel');
-        $('catalogSearch').value = '';
-        renderProductCatalog();
+        resetCatalogWizard();
         $('catalogSearch').focus();
         return;
       }
