@@ -88,6 +88,7 @@
     .menu-products { background: #0f766e; }
     .menu-receive { background: #15803d; }
     .menu-history { background: #475569; }
+    .menu-status { background: #b45309; }
     @media (max-width: 700px) {
       body { padding: 12px; }
       header { align-items: flex-start; }
@@ -183,6 +184,7 @@
         <button type="button" class="menu-products menu-square" data-warehouse-action="PRODUCTS"><span class="menu-title">รายการสินค้า</span><span class="menu-description">ดูสินค้าทั้งหมด</span></button>
         <button type="button" class="menu-add-product menu-square" data-warehouse-action="ADD_PRODUCT"><span class="menu-title">เพิ่มสินค้า (Admin)</span><span class="menu-description">เพิ่มสินค้าใหม่เข้าระบบ</span></button>
         <button type="button" class="menu-receive menu-square" data-warehouse-action="IN"><span class="menu-title">รับสินค้าเข้า</span><span class="menu-description">เพิ่มสต๊อกสินค้า</span></button>
+        <button type="button" class="menu-status menu-square" data-warehouse-action="STATUS"><span class="menu-title">จัดการสถานะสินค้า</span><span class="menu-description">พร้อมขาย / จอง / เสียหาย</span></button>
         <button type="button" class="menu-history" data-warehouse-action="HISTORY"><span class="menu-title">ประวัติทำรายการ</span></button>
       </div>
     </section>
@@ -429,6 +431,64 @@
             </tr>
           </thead>
           <tbody id="products"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel workflow-panel hidden" id="stockStatusPanel">
+      <h2>จัดการสถานะสินค้า</h2>
+      <p class="muted">เปลี่ยนสถานะเฉพาะจำนวนที่เลือกใน Location นี้ ยอดสินค้าจริงรวมจะไม่เปลี่ยน</p>
+      <form id="stockStatusForm">
+        <div class="form-grid">
+          <div>
+            <label for="statusProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
+            <input id="statusProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า">
+          </div>
+          <div>
+            <label for="statusProduct">สินค้า</label>
+            <select id="statusProduct" required></select>
+          </div>
+          <div>
+            <label for="statusLocation">Location</label>
+            <select id="statusLocation" required></select>
+          </div>
+          <div>
+            <label for="statusFrom">สถานะปัจจุบัน</label>
+            <select id="statusFrom" required>
+              <option value="available">พร้อมขาย</option>
+              <option value="reserved">จองแล้ว</option>
+              <option value="damaged">เสียหาย</option>
+            </select>
+          </div>
+          <div>
+            <label for="statusTo">เปลี่ยนเป็น</label>
+            <select id="statusTo" required>
+              <option value="reserved">จองแล้ว</option>
+              <option value="damaged">เสียหาย</option>
+              <option value="available">พร้อมขาย</option>
+            </select>
+          </div>
+          <div>
+            <label for="statusQuantity">จำนวนที่เปลี่ยน</label>
+            <input id="statusQuantity" type="number" min="1" step="1" required>
+          </div>
+          <div style="grid-column:1/-1;">
+            <label for="statusNotes">หมายเหตุ (ถ้ามี)</label>
+            <input id="statusNotes" type="text" maxlength="500" placeholder="เช่น จองให้ลูกค้า / พบสินค้าชำรุด">
+          </div>
+        </div>
+        <div id="statusBalanceInfo" class="panel" style="margin-top:12px;" aria-live="polite">เลือกสินค้าและ Location เพื่อดูยอดแต่ละสถานะ</div>
+        <div class="toolbar" style="margin-top:12px;">
+          <button id="submitStatusChange" type="submit">ยืนยันเปลี่ยนสถานะ</button>
+          <button id="refreshStatusBtn" type="button" class="secondary">รีเฟรชยอด</button>
+        </div>
+      </form>
+      <div id="stockStatusMessage" class="status" role="status"></div>
+      <h3>ประวัติเปลี่ยนสถานะล่าสุด</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>วันและเวลา</th><th>สินค้า</th><th>Location</th><th>จำนวน</th><th>จาก</th><th>เป็น</th><th>หมายเหตุ</th></tr></thead>
+          <tbody id="stockStatusHistoryRows"><tr><td colspan="7">กำลังโหลดข้อมูล...</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -1082,7 +1142,7 @@ db.from('products')
         .eq('is_active', true)
         .order('location_code'),
       db.from('stock_balances')
-        .select('id, product_id, location_id, quantity')
+        .select('id, product_id, location_id, quantity, reserved_quantity, damaged_quantity')
     ]);
 
     if (version !== authVersion || !currentUserId) return;
@@ -1454,6 +1514,14 @@ $('logoutBtn').addEventListener('click', async () => {
         }
         showWorkflowPanel('productManagementSection');
         $('addProductBtn').click();
+        return;
+      }
+
+      if (action === 'STATUS') {
+        showWorkflowPanel('stockStatusPanel');
+        renderStatusProductOptions();
+        renderStatusBalanceInfo();
+        loadStockStatusHistory();
         return;
       }
 
@@ -1859,6 +1927,130 @@ $('cancelProductBtn').addEventListener('click', () => {
   $('manageProductId').value = '';
   setStatus('productManageStatus', '');
 });
+
+
+const stockStatusLabels = { available: 'พร้อมขาย', reserved: 'จองแล้ว', damaged: 'เสียหาย' };
+
+function availableQty(balance) {
+  return Math.max(0, Number(balance?.quantity || 0) - Number(balance?.reserved_quantity || 0) - Number(balance?.damaged_quantity || 0));
+}
+function statusQty(balance, status) {
+  if (!balance) return 0;
+  if (status === 'reserved') return Number(balance.reserved_quantity || 0);
+  if (status === 'damaged') return Number(balance.damaged_quantity || 0);
+  return availableQty(balance);
+}
+function renderStatusProductOptions() {
+  const search = $('statusProductSearch').value.trim().toLowerCase();
+  const previous = $('statusProduct').value;
+  const list = productsData.filter(p => p.is_active && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(search));
+  $('statusProduct').innerHTML = '<option value="">เลือกสินค้า</option>' + list.map(p =>
+    '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.sku + ' — ' + p.product_name) + '</option>'
+  ).join('');
+  if (list.some(p => p.id === previous)) $('statusProduct').value = previous;
+  renderStatusLocationOptions();
+}
+function renderStatusLocationOptions() {
+  const productId = $('statusProduct').value;
+  const previous = $('statusLocation').value;
+  const locationsWithStock = locationsData.filter(l => balanceData.some(b => b.product_id === productId && b.location_id === l.id && Number(b.quantity || 0) > 0));
+  const sorted = [...locationsWithStock].sort((a,b) => a.location_code.localeCompare(b.location_code));
+  $('statusLocation').innerHTML = '<option value="">เลือก Location ที่มีสินค้า</option>' + sorted.map(l =>
+    '<option value="' + escapeHtml(l.id) + '">' + escapeHtml(l.location_code + ' (ชั้น ' + l.floor_no + ')') + '</option>'
+  ).join('');
+  if (sorted.some(l => l.id === previous)) $('statusLocation').value = previous;
+  renderStatusBalanceInfo();
+}
+function renderStatusBalanceInfo() {
+  const productId = $('statusProduct')?.value;
+  const locationId = $('statusLocation')?.value;
+  const balance = balanceData.find(b => b.product_id === productId && b.location_id === locationId);
+  const total = Number(balance?.quantity || 0);
+  const reserved = Number(balance?.reserved_quantity || 0);
+  const damaged = Number(balance?.damaged_quantity || 0);
+  const available = availableQty(balance);
+  $('statusBalanceInfo').innerHTML = '<strong>ยอดสถานะใน Location นี้</strong><div>สินค้าจริงทั้งหมด: ' + total.toLocaleString() + '</div><div>พร้อมขาย: ' + available.toLocaleString() + '</div><div>จองแล้ว: ' + reserved.toLocaleString() + '</div><div>เสียหาย: ' + damaged.toLocaleString() + '</div>';
+  const from = $('statusFrom').value;
+  $('statusQuantity').max = String(statusQty(balance, from) || 0);
+}
+async function loadStockStatusHistory() {
+  const { data, error } = await db.from('stock_status_transactions')
+    .select('id, product_id, location_id, quantity, from_status, to_status, notes, created_at')
+    .order('created_at', { ascending: false }).limit(50);
+  if (error) {
+    $('stockStatusHistoryRows').innerHTML = '<tr><td colspan="7">โหลดประวัติไม่สำเร็จ: ' + escapeHtml(error.message) + '</td></tr>';
+    return;
+  }
+  $('stockStatusHistoryRows').innerHTML = data?.length ? data.map(tx => {
+    const product = productsData.find(p => p.id === tx.product_id);
+    return '<tr><td>' + escapeHtml(new Date(tx.created_at).toLocaleString('th-TH')) + '</td><td>' + escapeHtml(product?.sku || 'ไม่พบสินค้า') + '</td><td>' + escapeHtml(locationName(tx.location_id)) + '</td><td>' + escapeHtml(tx.quantity) + '</td><td>' + escapeHtml(stockStatusLabels[tx.from_status] || tx.from_status) + '</td><td>' + escapeHtml(stockStatusLabels[tx.to_status] || tx.to_status) + '</td><td>' + escapeHtml(tx.notes || '—') + '</td></tr>';
+  }).join('') : '<tr><td colspan="7">ยังไม่มีประวัติเปลี่ยนสถานะ</td></tr>';
+}
+$('statusProductSearch').addEventListener('input', renderStatusProductOptions);
+$('statusProduct').addEventListener('change', renderStatusLocationOptions);
+$('statusLocation').addEventListener('change', renderStatusBalanceInfo);
+$('statusFrom').addEventListener('change', renderStatusBalanceInfo);
+$('statusTo').addEventListener('change', () => {
+  if ($('statusTo').value === $('statusFrom').value) {
+    $('statusTo').value = ['available','reserved','damaged'].find(v => v !== $('statusFrom').value) || 'available';
+  }
+});
+$('refreshStatusBtn').addEventListener('click', async () => {
+  await refreshAll();
+  renderStatusProductOptions();
+  await loadStockStatusHistory();
+});
+$('stockStatusForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy || !currentUserId) return;
+  const productId = $('statusProduct').value;
+  const locationId = $('statusLocation').value;
+  const quantity = Number($('statusQuantity').value);
+  const fromStatus = $('statusFrom').value;
+  const toStatus = $('statusTo').value;
+  const notes = $('statusNotes').value.trim() || null;
+  const balance = balanceData.find(b => b.product_id === productId && b.location_id === locationId);
+  if (!productId || !locationId || !Number.isSafeInteger(quantity) || quantity <= 0) {
+    setStatus('stockStatusMessage', 'กรุณาเลือกสินค้า, Location และจำนวนเต็มมากกว่า 0', true);
+    return;
+  }
+  if (fromStatus === toStatus) {
+    setStatus('stockStatusMessage', 'สถานะต้นทางและปลายทางต้องแตกต่างกัน', true);
+    return;
+  }
+  if (quantity > statusQty(balance, fromStatus)) {
+    setStatus('stockStatusMessage', 'จำนวนที่ระบุเกินยอดสถานะ ' + stockStatusLabels[fromStatus] + ' ที่มีอยู่', true);
+    return;
+  }
+  const product = productsData.find(p => p.id === productId);
+  if (!confirm('ยืนยันเปลี่ยนสถานะสินค้า?\nสินค้า: ' + (product?.sku || '') + '\nLocation: ' + locationName(locationId) + '\nจำนวน: ' + quantity + '\nจาก: ' + stockStatusLabels[fromStatus] + '\nเป็น: ' + stockStatusLabels[toStatus])) return;
+  const button = $('submitStatusChange');
+  button.disabled = true;
+  setStatus('stockStatusMessage', 'กำลังบันทึกการเปลี่ยนสถานะ...');
+  try {
+    const { error } = await db.rpc('process_stock_status_change', {
+      p_idempotency_key: (crypto.randomUUID ? crypto.randomUUID() : 'status-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+      p_product_id: productId,
+      p_location_id: locationId,
+      p_quantity: quantity,
+      p_from_status: fromStatus,
+      p_to_status: toStatus,
+      p_notes: notes
+    });
+    if (error) throw error;
+    $('statusQuantity').value = '';
+    $('statusNotes').value = '';
+    setStatus('stockStatusMessage', 'เปลี่ยนสถานะสินค้าเรียบร้อยแล้ว');
+    await refreshAll();
+    renderStatusProductOptions();
+    await loadStockStatusHistory();
+  } catch (error) {
+    setStatus('stockStatusMessage', 'เปลี่ยนสถานะไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 
   db.auth.onAuthStateChange((_event, session) => {
     setTimeout(() => applySession(session), 0);
