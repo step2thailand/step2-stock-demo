@@ -2184,9 +2184,9 @@ $('refreshStatusBtn').addEventListener('click', async () => {
     const product = productsData.find(p => p.id === $('statusProduct').value);
     const balance = balanceData.find(b => b.product_id === $('statusProduct').value && b.location_id === $('statusLocation').value);
     return '<h3>ตรวจสอบรายการก่อนยืนยัน</h3>' +
-      (product ? '<div class="preview-layout" style="margin:12px 0;">' +
-        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" style="width:100px;height:100px;flex-basis:100px;" aria-hidden="true"></span>') +
-        '<div><p><strong>SKU:</strong> ' + escapeHtml(product.sku) + '</p><p><strong>ชื่อสินค้า:</strong> ' + escapeHtml(product.product_name) + '</p></div></div>' : '<p>ยังไม่ได้เลือกสินค้า</p>') +
+      (product ? '<div class="preview-layout" style="margin:12px 0;align-items:center;">' +
+        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" style="width:112px;height:112px;min-width:112px;max-width:112px;object-fit:contain;flex:0 0 112px;border-radius:8px;" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" style="width:112px;height:112px;min-width:112px;flex:0 0 112px;" aria-hidden="true"></span>') +
+        '<div style="min-width:0;"><p><strong>SKU:</strong> ' + escapeHtml(product.sku) + '</p><p><strong>ชื่อสินค้า:</strong> ' + escapeHtml(product.product_name) + '</p></div></div>' : '<p>ยังไม่ได้เลือกสินค้า</p>') +
       '<p><strong>Location:</strong> ' + escapeHtml(locationName($('statusLocation').value)) + '</p>' +
       '<p><strong>จำนวน:</strong> ' + escapeHtml($('statusQuantity').value) + '</p>' +
       '<p><strong>เปลี่ยนสถานะ:</strong> ' + escapeHtml(stockStatusLabels[$('statusFrom').value]) + ' → ' + escapeHtml(stockStatusLabels[$('statusTo').value]) + '</p>' +
