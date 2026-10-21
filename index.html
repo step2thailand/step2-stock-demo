@@ -118,6 +118,22 @@
     #productManageTable td[colspan] { display: block; }
     #productManageTable td[colspan]::before { content: none; }
   }
+  @media (max-width: 700px) {
+    /* Keep transaction history readable on phones without horizontal table scrolling. */
+    #historyPanel .table-wrap { overflow: visible; }
+    #historyPanel table { min-width: 0; border-collapse: separate; border-spacing: 0; }
+    #historyPanel thead { display: none; }
+    #historyPanel table, #historyPanel tbody, #historyPanel tr,
+    #historyPanel td { display: block; width: 100%; box-sizing: border-box; }
+    #historyPanel tbody tr { border: 1px solid #e2e8f0; border-radius: 10px; margin: 0 0 10px; padding: 8px 10px; background: #fff; }
+    #historyPanel tbody td { display: grid; grid-template-columns: minmax(82px, 34%) minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; overflow-wrap: anywhere; }
+    #historyPanel tbody td:last-child { border-bottom: 0; }
+    #historyPanel tbody td::before { content: attr(data-label); font-weight: 600; color: #64748b; }
+    #historyPanel tbody td[colspan] { display: block; }
+    #historyPanel tbody td[colspan]::before { content: none; }
+    #historyPanel .toolbar { align-items: stretch; }
+    #historyPanel .toolbar input, #historyPanel .toolbar select, #historyPanel .toolbar button { width: 100%; min-width: 0; }
+  }
   .product-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
   .product-card { border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#fff; min-width:0; }
   .product-card img { width:100%; height:150px; object-fit:contain; background:#f8fafc; border-radius:8px; }
@@ -1453,13 +1469,13 @@ db.from('products')
 
     $('historyRows').innerHTML = filtered.length
       ? filtered.map(item => `<tr>
-          <td>${escapeHtml(new Date(item.created_at).toLocaleString('th-TH'))}</td>
-          <td>${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}${item.status_change_label ? '<br><small>' + escapeHtml(item.status_change_label) + '</small>' : ''}</td>
-          <td>${escapeHtml(productName(item.product_id))}</td>
-          <td>${escapeHtml(item.quantity)}</td>
-          <td>${escapeHtml(locationName(item.from_location_id))}</td>
-          <td>${escapeHtml(locationName(item.to_location_id))}</td>
-          <td>${escapeHtml(item.notes || '—')}</td>
+          <td data-label="วันและเวลา">${escapeHtml(new Date(item.created_at).toLocaleString('th-TH'))}</td>
+          <td data-label="ประเภท">${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}${item.status_change_label ? '<br><small>' + escapeHtml(item.status_change_label) + '</small>' : ''}</td>
+          <td data-label="SKU">${escapeHtml(productName(item.product_id))}</td>
+          <td data-label="จำนวน">${escapeHtml(item.quantity)}</td>
+          <td data-label="ต้นทาง">${escapeHtml(locationName(item.from_location_id))}</td>
+          <td data-label="ปลายทาง">${escapeHtml(locationName(item.to_location_id))}</td>
+          <td data-label="หมายเหตุ">${escapeHtml(item.notes || '—')}</td>
         </tr>`).join('')
       : '<tr><td colspan="7">ไม่พบประวัติที่ตรงกับตัวกรอง</td></tr>';
     if ($('historyStatus') && historyData.length) {
