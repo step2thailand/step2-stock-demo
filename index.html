@@ -1558,7 +1558,11 @@ $('logoutBtn').addEventListener('click', async () => {
     document.body.classList.remove('workflow-modal-active');
   }
 
-  function closeWorkflowPopup() {
+  async function closeWorkflowPopup() {
+    // Stop any active camera session when its workflow popup is closed.
+    if (typeof stopStockScanner === 'function') await stopStockScanner();
+    if (typeof stopStatusScanner === 'function') await stopStatusScanner();
+    if (typeof stopScanner === 'function' && (scannerRunning || html5QrCode)) await stopScanner();
     hideWorkflowPanels();
     const modal = $('productManageModal');
     if (modal) modal.classList.add('hidden');
@@ -2523,10 +2527,15 @@ $('stockStatusForm').addEventListener('submit', async event => {
     if (error) throw error;
     $('statusQuantity').value = '';
     $('statusNotes').value = '';
-    setStatus('stockStatusMessage', 'เปลี่ยนสถานะสินค้าเรียบร้อยแล้ว');
+    $('statusProductSearch').value = '';
+    $('statusBarcodeInput').value = '';
+    $('statusProduct').value = '';
+    $('statusLocation').value = '';
     await refreshAll();
     renderStatusProductOptions();
+    setStatusWizardStep(1);
     await loadStockStatusHistory();
+    setStatus('stockStatusMessage', 'เปลี่ยนสถานะสินค้าเรียบร้อยแล้ว');
   } catch (error) {
     setStatus('stockStatusMessage', 'เปลี่ยนสถานะไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
   } finally {
