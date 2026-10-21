@@ -305,24 +305,29 @@
 <section class="panel workflow-panel hidden" id="productCatalogPanel">
   <div class="withdrawal-wizard-header">
     <div>
-      <h2 id="catalogWizardTitle">1. ค้นหาสินค้า</h2>
-      <p class="muted">ค้นหาสินค้าด้วย SKU ชื่อสินค้า หรือ Barcode แล้วดูรายละเอียดสินค้า</p>
+      <h2 id="catalogWizardTitle">1. เลือกแบรนด์สินค้า</h2>
+      <p class="muted">เลือกแบรนด์ จากนั้นเลือกหมวดหมู่ เพื่อดูรายการสินค้าทั้งหมด</p>
     </div>
-    <span id="catalogWizardStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 2</span>
+    <span id="catalogWizardStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 3</span>
   </div>
-  <div id="catalogWizardProgress" class="withdrawal-progress" aria-hidden="true"><span class="active"></span><span></span></div>
+  <div id="catalogWizardProgress" class="withdrawal-progress" aria-hidden="true"><span class="active"></span><span></span><span></span></div>
   <div class="catalog-wizard-step" data-catalog-step="1">
-    <label for="catalogSearch">ค้นหาสินค้า (SKU / ชื่อสินค้า / Barcode)</label>
-    <input id="catalogSearch" type="search" placeholder="พิมพ์ SKU / ชื่อสินค้า / Barcode" autocomplete="off">
-    <p class="muted">กดปุ่มถัดไปเพื่อแสดงรายการสินค้าที่ตรงกับคำค้นหา หรือเว้นว่างเพื่อดูสินค้าทั้งหมด</p>
+    <label for="catalogBrandSelect">แบรนด์สินค้า</label>
+    <select id="catalogBrandSelect"><option value="">กำลังโหลดแบรนด์...</option></select>
+    <p class="muted">เลือกแบรนด์ที่ต้องการดู</p>
   </div>
   <div class="catalog-wizard-step hidden" data-catalog-step="2">
+    <label for="catalogCategorySelect">หมวดหมู่สินค้า</label>
+    <select id="catalogCategorySelect"><option value="">เลือกหมวดหมู่สินค้า</option></select>
+    <p class="muted">เลือกหมวดหมู่เพื่อแสดงสินค้าทั้งหมดในกลุ่มนี้</p>
+  </div>
+  <div class="catalog-wizard-step hidden" data-catalog-step="3">
     <div id="catalogStatus" class="status" role="status"></div>
     <div id="productCatalogGrid" class="product-catalog-grid"></div>
   </div>
   <div class="withdrawal-wizard-actions">
     <button id="catalogBackBtn" type="button" class="secondary" disabled>ย้อนกลับ</button>
-    <button id="catalogNextBtn" type="button">แสดงรายการสินค้า →</button>
+    <button id="catalogNextBtn" type="button">เลือกแบรนด์ →</button>
   </div>
 </section>
 
@@ -435,6 +440,7 @@
         </div>
         <div id="stockScanReader" class="hidden" style="width:100%;max-width:420px;margin-top:12px;"></div>
         <div id="stockScanStatus" class="status" role="status"></div>
+        <div id="stockProductPreview" class="selected-product-preview hidden" aria-live="polite"></div>
         <div style="max-width:260px;margin-top:12px;">
           <label for="floor">กรองตำแหน่งตามชั้น</label>
           <select id="floor">
@@ -715,55 +721,64 @@
 
 
 let catalogWizardStep = 1;
-
+let catalogSelectedBrand = '';
+let catalogSelectedCategory = '';
+function productBrand(p) { return String(p.brand_name ?? p.brand ?? p.product_brand ?? p.manufacturer ?? '').trim(); }
+function productCategory(p) { return String(p.category_name ?? p.category ?? p.product_category ?? p.category_label ?? '').trim(); }
+function uniqueProductValues(getter, products = productsData) {
+  return [...new Set(products.filter(p => p.is_active === true).map(getter).filter(Boolean))].sort((a,b) => a.localeCompare(b,'th'));
+}
+function populateCatalogBrands() {
+  const select = $('catalogBrandSelect');
+  const brands = uniqueProductValues(productBrand);
+  select.innerHTML = '<option value="">เลือกแบรนด์สินค้า</option>' + brands.map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>').join('');
+  if (!brands.length) select.innerHTML = '<option value="">ไม่พบข้อมูลแบรนด์ในสินค้า</option>';
+  populateCatalogCategories();
+}
+function populateCatalogCategories() {
+  const brand = $('catalogBrandSelect').value;
+  const categories = uniqueProductValues(productCategory, productsData.filter(p => p.is_active === true && productBrand(p) === brand));
+  $('catalogCategorySelect').innerHTML = '<option value="">เลือกหมวดหมู่สินค้า</option>' + categories.map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>').join('');
+  if (brand && !categories.length) $('catalogCategorySelect').innerHTML = '<option value="">ไม่พบข้อมูลหมวดหมู่ของแบรนด์นี้</option>';
+}
 function setCatalogWizardStep(step) {
-  catalogWizardStep = Math.max(1, Math.min(2, step));
-  document.querySelectorAll('[data-catalog-step]').forEach(section => {
-    section.classList.toggle('hidden', Number(section.dataset.catalogStep) !== catalogWizardStep);
-  });
-  $('catalogWizardTitle').textContent = catalogWizardStep === 1 ? '1. ค้นหาสินค้า' : '2. รายการสินค้า';
-  $('catalogWizardStepLabel').textContent = `ขั้นที่ ${catalogWizardStep} จาก 2`;
-  $('catalogWizardProgress').querySelectorAll('span').forEach((bar, index) => {
-    bar.classList.toggle('active', index < catalogWizardStep);
-  });
+  catalogWizardStep = Math.max(1, Math.min(3, step));
+  document.querySelectorAll('[data-catalog-step]').forEach(s => s.classList.toggle('hidden', Number(s.dataset.catalogStep) !== catalogWizardStep));
+  $('catalogWizardTitle').textContent = ['1. เลือกแบรนด์สินค้า','2. เลือกหมวดหมู่สินค้า','3. รายการสินค้า'][catalogWizardStep - 1];
+  $('catalogWizardStepLabel').textContent = 'ขั้นที่ ' + catalogWizardStep + ' จาก 3';
+  $('catalogWizardProgress').querySelectorAll('span').forEach((bar,i) => bar.classList.toggle('active', i < catalogWizardStep));
   $('catalogBackBtn').disabled = catalogWizardStep === 1;
-  $('catalogNextBtn').textContent = catalogWizardStep === 1 ? 'แสดงรายการสินค้า →' : 'ค้นหาใหม่';
-  $('catalogNextBtn').classList.toggle('secondary', catalogWizardStep === 2);
+  $('catalogNextBtn').textContent = catalogWizardStep === 1 ? 'เลือกหมวดหมู่ →' : catalogWizardStep === 2 ? 'แสดงสินค้า →' : 'เลือกใหม่';
+  $('catalogNextBtn').classList.toggle('secondary', catalogWizardStep === 3);
 }
-
 function resetCatalogWizard() {
-  $('catalogSearch').value = '';
-  setCatalogWizardStep(1);
-  renderProductCatalog();
+  catalogSelectedBrand = ''; catalogSelectedCategory = '';
+  $('catalogBrandSelect').value = ''; populateCatalogCategories(); $('catalogCategorySelect').value = '';
+  $('productCatalogGrid').innerHTML = ''; setStatus('catalogStatus',''); setCatalogWizardStep(1);
 }
-
-$('catalogBackBtn').addEventListener('click', () => {
-  setCatalogWizardStep(1);
-  $('catalogSearch').focus();
-});
-
+$('catalogBrandSelect').addEventListener('change', () => { catalogSelectedBrand = $('catalogBrandSelect').value; populateCatalogCategories(); });
+$('catalogCategorySelect').addEventListener('change', () => { catalogSelectedCategory = $('catalogCategorySelect').value; });
+$('catalogBackBtn').addEventListener('click', () => setCatalogWizardStep(catalogWizardStep - 1));
 $('catalogNextBtn').addEventListener('click', () => {
   if (catalogWizardStep === 1) {
-    renderProductCatalog();
-    setCatalogWizardStep(2);
-  } else {
-    resetCatalogWizard();
-    $('catalogSearch').focus();
-  }
+    if (!$('catalogBrandSelect').value) { setStatus('catalogStatus','กรุณาเลือกแบรนด์สินค้า',true); return; }
+    populateCatalogCategories(); setCatalogWizardStep(2); setStatus('catalogStatus','');
+  } else if (catalogWizardStep === 2) {
+    if (!$('catalogCategorySelect').value) { setStatus('catalogStatus','กรุณาเลือกหมวดหมู่สินค้า',true); return; }
+    catalogSelectedBrand = $('catalogBrandSelect').value; catalogSelectedCategory = $('catalogCategorySelect').value;
+    renderProductCatalog(); setCatalogWizardStep(3);
+  } else resetCatalogWizard();
 });
-
 function renderProductCatalog() {
-  const search = $('catalogSearch').value.trim().toLowerCase();
-  const filtered = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(search));
+  const filtered = productsData.filter(p => p.is_active === true && productBrand(p) === catalogSelectedBrand && productCategory(p) === catalogSelectedCategory);
   $('productCatalogGrid').innerHTML = filtered.length ? filtered.map(p =>
     '<article class="product-card">' +
     (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
-    '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div>' +
-    '<div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
-    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div>' +
-    '<div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
-  ).join('') : '<p class="muted">ไม่พบสินค้า</p>';
-  setStatus('catalogStatus', 'แสดง ' + filtered.length + ' รายการสินค้า');
+    '<div class="product-card-meta">แบรนด์: ' + escapeHtml(productBrand(p)) + '</div><div class="product-card-meta">หมวดหมู่: ' + escapeHtml(productCategory(p)) + '</div>' +
+    '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div><div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
+    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div><div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
+  ).join('') : '<p class="muted">ไม่พบสินค้าในแบรนด์และหมวดหมู่ที่เลือก หรือข้อมูลแบรนด์/หมวดหมู่ยังไม่ถูกกรอกในสินค้า</p>';
+  setStatus('catalogStatus','แสดง ' + filtered.length + ' รายการสินค้า');
 }
 
 function renderProductManagement() {
@@ -1234,7 +1249,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     const [pRes, lRes, bRes] = await Promise.all([
      
 db.from('products')
-  .select('id, sku, product_name, barcode, unit, image_url, is_active')
+  .select('*')
   .order('sku'),
 
       db.from('locations')
@@ -1257,6 +1272,7 @@ db.from('products')
     locationsData = lRes.data || [];
     balanceData = bRes.data || [];
     renderStock();
+    populateCatalogBrands();
     renderProductCatalog();
     fillTransactionSelects();
     setStatus('status', 'โหลดข้อมูลสต๊อกแล้ว');
@@ -1732,7 +1748,7 @@ $('logoutBtn').addEventListener('click', async () => {
   });
   $('sourceLocation').addEventListener('change', updateTransactionPreview);
   $('quantity').addEventListener('input', updateTransactionPreview);
-  $('search').addEventListener('input', renderStock);
+  $('search').addEventListener('input', () => { renderStock(); showScannedProductDetails($('search').value); });
   $('floor').addEventListener('change', renderStock);
   $('refreshBtn').addEventListener('click', refreshAll);
 
@@ -1885,70 +1901,18 @@ $('stockLookupNextBtn').addEventListener('click', () => {
   }
 });
 
-function showScannedProductDetails(barcode) {
-  const normalized = String(barcode || "").trim().toLowerCase();
-
-  const matches = productsData.filter(
-    p => String(p.barcode || "").trim().toLowerCase() === normalized
-  );
-
-  const panel = $("scannedProductDetails");
-  const info = $("scannedProductInfo");
-
-  if (matches.length !== 1) {
-    panel.classList.add("hidden");
-    info.innerHTML = "";
-    return;
-  }
-
+function showScannedProductDetails(query) {
+  const normalized = String(query || '').trim().toLowerCase();
+  const panel = $('stockProductPreview');
+  if (!normalized) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+  const exact = productsData.filter(p => [p.barcode,p.sku].some(v => String(v || '').trim().toLowerCase() === normalized));
+  const matches = exact.length ? exact : productsData.filter(p => [p.product_name,p.sku,p.barcode].some(v => String(v || '').toLowerCase().includes(normalized)));
+  if (matches.length !== 1) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
   const product = matches[0];
-
-  const balances = balanceData
-    .filter(b => b.product_id === product.id)
-    .map(balance => {
-      const location = locationsData.find(
-        l => l.id === balance.location_id
-      );
-
-      if (!location) return null;
-
-      return {
-        location: location.location_code,
-        floor: location.floor_no,
-        quantity: Number(balance.quantity || 0)
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.location.localeCompare(b.location));
-
-  const total = balances.reduce(
-    (sum, item) => sum + item.quantity, 0
-  );
-
-  info.innerHTML = `
-    <div style="display:grid;gap:8px;">
-      <div><strong>SKU:</strong> ${escapeHtml(product.sku)}</div>
-      <div><strong>ชื่อสินค้า:</strong> ${escapeHtml(product.product_name)}</div>
-      <div><strong>Barcode:</strong> ${escapeHtml(product.barcode || "-")}</div>
-      <div style="font-size:1.1rem;">
-        <strong>ยอดคงเหลือรวม:</strong> ${total.toLocaleString()} ชิ้น
-      </div>
-      <div style="margin-top:8px;"><strong>ตำแหน่งจัดเก็บ</strong></div>
-      ${
-        balances.length
-          ? balances.map(item => `
-              <div style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                <strong>${escapeHtml(item.location)}</strong>
-                <span> · ชั้น ${escapeHtml(item.floor)}</span>
-                <div>คงเหลือ ${item.quantity.toLocaleString()} ชิ้น</div>
-              </div>
-            `).join("")
-          : "<div>ไม่พบตำแหน่งจัดเก็บของสินค้านี้</div>"
-      }
-    </div>
-  `;
-
-  panel.classList.remove("hidden");
+  const total = balanceData.filter(b => b.product_id === product.id).reduce((sum,b) => sum + Number(b.quantity || 0),0);
+  panel.innerHTML = (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+    '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span><span class="product-picker-sku">ยอดคงเหลือรวม: ' + total.toLocaleString() + ' ชิ้น</span></span>';
+  panel.classList.remove('hidden');
 }
 
 async function stopStockScanner() {
