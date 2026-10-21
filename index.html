@@ -1580,6 +1580,7 @@ $('logoutBtn').addEventListener('click', async () => {
       panel.classList.remove('workflow-popup-active');
       panel.removeAttribute('role');
       panel.removeAttribute('aria-modal');
+      panel.removeAttribute('aria-label');
     });
     document.body.classList.remove('workflow-modal-active');
   }
@@ -1613,6 +1614,7 @@ $('logoutBtn').addEventListener('click', async () => {
       panel.classList.add('workflow-popup-active');
       panel.setAttribute('role', 'dialog');
       panel.setAttribute('aria-modal', 'true');
+      panel.setAttribute('aria-label', panel.querySelector('h2')?.textContent.trim() || 'เมนูงานคลังสินค้า');
       document.body.classList.add('workflow-modal-active');
       if (!panel.querySelector('.workflow-popup-close-row')) {
         const row = document.createElement('div');
