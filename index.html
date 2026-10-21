@@ -1568,8 +1568,14 @@ $('logoutBtn').addEventListener('click', async () => {
 
       if (action === 'STATUS') {
         showWorkflowPanel('stockStatusPanel');
+        $('stockStatusForm').reset();
+        $('statusProductSearch').value = '';
+        $('statusQuantity').value = '';
+        $('statusNotes').value = '';
+        setStatus('stockStatusMessage', '');
         renderStatusProductOptions();
         renderStatusBalanceInfo();
+        setStatusWizardStep(1);
         loadStockStatusHistory();
         return;
       }
