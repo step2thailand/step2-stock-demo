@@ -1023,7 +1023,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
           balanceData.some(balance =>
             balance.product_id === productId &&
             balance.location_id === location.id &&
-            Number(balance.quantity || 0) > 0
+            availableQty(balance) > 0
           )
         )
       : sortedLocations;
@@ -1038,7 +1038,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
           item.product_id === productId && item.location_id === location.id
         );
         const stockLabel = (type === 'OUT' || type === 'MOVE')
-          ? ` — คงเหลือ ${Number(balance?.quantity || 0).toLocaleString()} ${selectedProduct?.unit || 'ชิ้น'}`
+          ? ` — พร้อมขาย ${availableQty(balance).toLocaleString()} ${selectedProduct?.unit || 'ชิ้น'}`
           : '';
         return `${location.location_code} (ชั้น ${location.floor_no})${stockLabel}`;
       },
@@ -1077,14 +1077,15 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       const quantity = Number($('quantity').value || 0);
       const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
       const current = Number(row?.quantity || 0);
-      const valid = !!sourceId && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= current;
+      const available = availableQty(row);
+      const valid = !!sourceId && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= available;
       panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนย้ายตำแหน่ง</h3><div class="preview-layout">' +
         (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
         '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
         '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
-        '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (คงเหลือ ' + current.toLocaleString() + ')</div>' +
+        '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (สินค้าจริง ' + current.toLocaleString() + ', พร้อมขาย ' + available.toLocaleString() + ')</div>' +
         '<div>ปลายทาง: ' + escapeHtml(locationName(destinationId)) + '</div>' +
-        '<div><strong>' + (valid ? 'คงเหลือที่ต้นทางหลังย้าย: ' + (current - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนสินค้า') + '</strong></div></div></div>';
+        '<div><strong>' + (valid ? 'พร้อมขายที่ต้นทางหลังย้าย: ' + (available - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนที่พร้อมขาย') + '</strong></div></div></div>';
       panel.classList.remove('hidden');
       return;
     }
@@ -1092,19 +1093,21 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     const sourceId = $('sourceLocation').value;
     const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
     const current = Number(row?.quantity || 0);
+    const available = availableQty(row);
     const rawQty = $('quantity').value;
     const qty = Number(rawQty);
-    const valid = !!sourceId && Number.isSafeInteger(qty) && qty > 0 && qty <= current;
-    const remaining = valid ? current - qty : null;
+    const valid = !!sourceId && Number.isSafeInteger(qty) && qty > 0 && qty <= available;
+    const remaining = valid ? available - qty : null;
     panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนเบิก</h3><div class="preview-layout">' +
       (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
       '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div>' +
       '<div>SKU: ' + escapeHtml(product.sku) + '</div>' +
       '<div>Location: ' + escapeHtml(locationName(sourceId)) + '</div>' +
-      '<div>คงเหลือปัจจุบัน: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+      '<div>สินค้าจริงทั้งหมด: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+      '<div>พร้อมขาย: ' + available.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
       '<div>จำนวนที่เบิก: ' + (rawQty ? escapeHtml(rawQty) : '—') + '</div>' +
       '<div><strong>คงเหลือหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดคงเหลือ' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
-      (rawQty && Number.isSafeInteger(qty) && qty > current ? '<div class="error">จำนวนที่เบิกเกินยอดคงเหลือ</div>' : '') +
+      (rawQty && Number.isSafeInteger(qty) && qty > available ? '<div class="error">จำนวนที่เบิกเกินยอดพร้อมขาย</div>' : '') +
       '</div></div>';
     panel.classList.remove('hidden');
   }
@@ -1645,7 +1648,7 @@ const destinationId =
       const sourceBalance = balanceData.find(
         balance => balance.product_id === productId && balance.location_id === sourceId
       );
-      const availableQuantity = Number(sourceBalance?.quantity || 0);
+      const availableQuantity = availableQty(sourceBalance);
 
       if (quantity > availableQuantity) {
         setStatus(
