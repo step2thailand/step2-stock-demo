@@ -105,6 +105,19 @@
       .metric-value { font-size: 23px; margin-top: 0; }
       .form-grid { grid-template-columns: 1fr; }
     }
+  @media (max-width: 700px) {
+    /* Render product-management rows as readable cards on phones, without horizontal scrolling. */
+    #productManageTable { min-width: 0; border-collapse: separate; border-spacing: 0; }
+    #productManageTable thead { display: none; }
+    #productManageTable, #productManageTable tbody, #productManageTable tr,
+    #productManageTable td { display: block; width: 100%; box-sizing: border-box; }
+    #productManageTable tr { border: 1px solid #e2e8f0; border-radius: 10px; margin: 0 0 10px; padding: 8px 10px; background: #fff; }
+    #productManageTable td { display: grid; grid-template-columns: minmax(82px, 34%) minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; overflow-wrap: anywhere; }
+    #productManageTable td:last-child { border-bottom: 0; }
+    #productManageTable td::before { content: attr(data-label); font-weight: 600; color: #64748b; }
+    #productManageTable td[colspan] { display: block; }
+    #productManageTable td[colspan]::before { content: none; }
+  }
   .product-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
   .product-card { border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#fff; min-width:0; }
   .product-card img { width:100%; height:150px; object-fit:contain; background:#f8fafc; border-radius:8px; }
@@ -349,8 +362,8 @@
 
   <div id="productManageStatus" class="status" role="status"></div>
 
-  <div style="overflow-x:auto;">
-    <table>
+  <div class="product-manage-table-wrap" style="overflow-x:auto;">
+    <table id="productManageTable">
       <thead>
         <tr>
           <th>SKU</th>
@@ -891,12 +904,12 @@ function renderProductManagement() {
   $('productManageRows').innerHTML = filtered.length
     ? filtered.map(p => `
         <tr>
-          <td>${escapeHtml(p.sku)}</td>
-          <td>${escapeHtml(p.product_name)}</td>
-          <td>${escapeHtml(p.barcode || '-')}</td>
-          <td>${escapeHtml(p.unit || 'ชิ้น')}</td>
-          <td>${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
-          <td>
+          <td data-label="SKU">${escapeHtml(p.sku)}</td>
+          <td data-label="ชื่อสินค้า">${escapeHtml(p.product_name)}</td>
+          <td data-label="Barcode">${escapeHtml(p.barcode || '-')}</td>
+          <td data-label="หน่วย">${escapeHtml(p.unit || 'ชิ้น')}</td>
+          <td data-label="สถานะ">${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
+          <td data-label="จัดการ">
             
 <button type="button" data-edit-product="${escapeHtml(p.id)}" style="width:auto;">แก้ไข</button>
 ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}" style="width:auto;background:#dc2626;margin-top:4px;">ลบ</button>` : ''}
