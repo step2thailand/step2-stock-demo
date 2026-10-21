@@ -2070,7 +2070,6 @@ function selectStatusProductByCode(code) {
   $('statusProductSearch').value = product.sku;
   $('statusProduct').value = product.id;
   renderStatusProductPickerResults();
-  $('statusProductPickerResults').classList.add('hidden');
   renderStatusSelectedProductPreview();
   renderStatusLocationOptions();
   setStatus('statusScanMessage', 'พบสินค้า ' + product.sku + ' — ' + product.product_name);
@@ -2122,6 +2121,11 @@ document.addEventListener('click', event => {
   if (!event.target.closest('#statusProductSearch') && !event.target.closest('#statusProductPickerResults')) {
     $('statusProductPickerResults')?.classList.add('hidden');
   }
+});
+$('statusBarcodeInput').addEventListener('input', () => {
+  // Keep the product picker in sync while a barcode scanner or keyboard types.
+  $('statusProductSearch').value = $('statusBarcodeInput').value;
+  renderStatusProductOptions();
 });
 $('statusBarcodeInput').addEventListener('keydown', event => {
   if (event.key === 'Enter') { event.preventDefault(); selectStatusProductByCode($('statusBarcodeInput').value); }
