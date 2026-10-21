@@ -554,7 +554,18 @@
 
     <section class="panel workflow-panel hidden" id="historyPanel">
       <h2>ประวัติธุรกรรมล่าสุด</h2>
-      <p class="muted">แสดงรายการล่าสุดไม่เกิน 50 รายการ</p>
+      <p class="muted">แสดงรายการล่าสุดไม่เกิน 50 รายการ สามารถค้นหาและกรองรายการได้</p>
+      <div class="toolbar">
+        <input id="historySearch" type="search" placeholder="ค้นหา SKU / หมายเหตุ / Location" aria-label="ค้นหาประวัติ">
+        <select id="historyTypeFilter" aria-label="กรองตามประเภทธุรกรรม">
+          <option value="">ทุกประเภท</option>
+          <option value="IN">รับเข้า</option>
+          <option value="OUT">เบิกออก</option>
+          <option value="MOVE">ย้ายตำแหน่ง</option>
+        </select>
+        <input id="historyDateFilter" type="date" aria-label="กรองตามวันที่">
+        <button id="historyRefreshBtn" class="secondary" type="button">รีเฟรชประวัติ</button>
+      </div>
       <div id="historyStatus" class="status" role="status"></div>
       <div class="table-wrap">
         <table>
@@ -1379,9 +1390,26 @@ db.from('products')
 
   function renderHistory() {
     const typeLabels = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง' };
+    const query = ($('historySearch')?.value || '').trim().toLowerCase();
+    const typeFilter = $('historyTypeFilter')?.value || '';
+    const dateFilter = $('historyDateFilter')?.value || '';
+    const filtered = historyData.filter(item => {
+      if (typeFilter && item.transaction_type !== typeFilter) return false;
+      if (dateFilter) {
+        const date = new Date(item.created_at);
+        const dateKey = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+        if (dateKey !== dateFilter) return false;
+      }
+      const searchable = [
+        productName(item.product_id), item.notes || '',
+        locationName(item.from_location_id), locationName(item.to_location_id),
+        typeLabels[item.transaction_type] || item.transaction_type
+      ].join(' ').toLowerCase();
+      return searchable.includes(query);
+    });
 
-    $('historyRows').innerHTML = historyData.length
-      ? historyData.map(item => `<tr>
+    $('historyRows').innerHTML = filtered.length
+      ? filtered.map(item => `<tr>
           <td>${escapeHtml(new Date(item.created_at).toLocaleString('th-TH'))}</td>
           <td>${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}</td>
           <td>${escapeHtml(productName(item.product_id))}</td>
@@ -1390,7 +1418,10 @@ db.from('products')
           <td>${escapeHtml(locationName(item.to_location_id))}</td>
           <td>${escapeHtml(item.notes || '—')}</td>
         </tr>`).join('')
-      : '<tr><td colspan="7">ยังไม่มีประวัติธุรกรรม</td></tr>';
+      : '<tr><td colspan="7">ไม่พบประวัติที่ตรงกับตัวกรอง</td></tr>';
+    if ($('historyStatus') && historyData.length) {
+      $('historyStatus').textContent = 'แสดง ' + filtered.length + ' จาก ' + historyData.length + ' รายการล่าสุดที่โหลดไว้';
+    }
   }
 
   async function refreshAll() {
@@ -1833,6 +1864,10 @@ $('logoutBtn').addEventListener('click', async () => {
   $('search').addEventListener('input', () => { renderStock(); showScannedProductDetails($('search').value); });
   $('floor').addEventListener('change', renderStock);
   $('refreshBtn').addEventListener('click', refreshAll);
+  $('historySearch').addEventListener('input', renderHistory);
+  $('historyTypeFilter').addEventListener('change', renderHistory);
+  $('historyDateFilter').addEventListener('change', renderHistory);
+  $('historyRefreshBtn').addEventListener('click', () => loadHistory(authVersion));
 
   $('transactionForm').addEventListener('submit', async event => {
     event.preventDefault();
