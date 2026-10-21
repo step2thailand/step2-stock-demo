@@ -1572,7 +1572,7 @@ $('logoutBtn').addEventListener('click', async () => {
   }
 });
 
-  // Short audible feedback for camera barcode scans. Initialize audio from the user's button gesture.
+  // Audible feedback for camera barcode scans. Resume audio from the user's button gesture.
   let scanFeedbackAudio = null;
   function prepareScanFeedback() {
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -1585,29 +1585,33 @@ $('logoutBtn').addEventListener('click', async () => {
     }
   }
   function playScanFeedback(success) {
-    if (!scanFeedbackAudio || scanFeedbackAudio.state !== 'running') return;
+    if (!scanFeedbackAudio) return;
+    if (scanFeedbackAudio.state === 'suspended') scanFeedbackAudio.resume().catch(() => {});
+    if (scanFeedbackAudio.state !== 'running') return;
     const playTone = (frequency, startAt, duration) => {
       try {
         const oscillator = scanFeedbackAudio.createOscillator();
         const gain = scanFeedbackAudio.createGain();
-        oscillator.type = 'sine';
+        oscillator.type = 'square';
         oscillator.frequency.value = frequency;
         gain.gain.setValueAtTime(0.0001, startAt);
-        gain.gain.exponentialRampToValueAtTime(0.14, startAt + 0.008);
+        // Raise oscillator volume substantially; cap below full scale to avoid harsh clipping.
+        gain.gain.exponentialRampToValueAtTime(0.72, startAt + 0.012);
+        gain.gain.setValueAtTime(0.72, startAt + Math.max(0.02, duration - 0.025));
         gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
         oscillator.connect(gain);
         gain.connect(scanFeedbackAudio.destination);
         oscillator.start(startAt);
-        oscillator.stop(startAt + duration + 0.01);
+        oscillator.stop(startAt + duration + 0.015);
       } catch (error) {
         console.warn('เล่นเสียงแจ้งผลสแกนไม่สำเร็จ:', error);
       }
     };
     const now = scanFeedbackAudio.currentTime;
-    if (success) playTone(1050, now, 0.11);
+    if (success) playTone(1250, now, 0.16);
     else {
-      playTone(420, now, 0.10);
-      playTone(420, now + 0.17, 0.10);
+      playTone(520, now, 0.14);
+      playTone(520, now + 0.22, 0.14);
     }
   }
 
