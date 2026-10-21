@@ -448,23 +448,23 @@
     </section>
 
     <section class="panel workflow-panel hidden" id="stockStatusPanel">
-      <h2>จัดการสถานะสินค้า</h2>
-      <p class="muted">เปลี่ยนสถานะเฉพาะจำนวนที่เลือกใน Location นี้ ยอดสินค้าจริงรวมจะไม่เปลี่ยน</p>
+      <div id="statusWizardHeader" class="withdrawal-wizard-header"><div><h2 id="statusWizardTitle">1. เลือกสินค้า</h2><p class="muted">จัดการสถานะสินค้าโดยทำตามขั้นตอน และตรวจสอบก่อนยืนยัน</p></div><span id="statusWizardStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 4</span></div>
+      <div id="statusWizardProgress" class="withdrawal-progress" aria-hidden="true"><span class="active"></span><span></span><span></span><span></span></div>
       <form id="stockStatusForm">
         <div class="form-grid">
-          <div>
+          <div class="status-wizard-field" data-status-step="1">
             <label for="statusProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
             <input id="statusProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า">
           </div>
-          <div>
+          <div class="status-wizard-field" data-status-step="1">
             <label for="statusProduct">สินค้า</label>
             <select id="statusProduct" required></select>
           </div>
-          <div>
+          <div class="status-wizard-field" data-status-step="2">
             <label for="statusLocation">Location</label>
             <select id="statusLocation" required></select>
           </div>
-          <div>
+          <div class="status-wizard-field" data-status-step="2">
             <label for="statusFrom">สถานะปัจจุบัน</label>
             <select id="statusFrom" required>
               <option value="available">พร้อมขาย</option>
@@ -472,7 +472,7 @@
               <option value="damaged">เสียหาย</option>
             </select>
           </div>
-          <div>
+          <div class="status-wizard-field" data-status-step="3">
             <label for="statusTo">เปลี่ยนเป็น</label>
             <select id="statusTo" required>
               <option value="reserved">จองแล้ว</option>
@@ -480,20 +480,19 @@
               <option value="available">พร้อมขาย</option>
             </select>
           </div>
-          <div>
+          <div class="status-wizard-field" data-status-step="3">
             <label for="statusQuantity">จำนวนที่เปลี่ยน</label>
             <input id="statusQuantity" type="number" min="1" step="1" required>
           </div>
-          <div style="grid-column:1/-1;">
+          <div class="status-wizard-field" data-status-step="3" style="grid-column:1/-1;">
             <label for="statusNotes">หมายเหตุ (ถ้ามี)</label>
             <input id="statusNotes" type="text" maxlength="500" placeholder="เช่น จองให้ลูกค้า / พบสินค้าชำรุด">
           </div>
         </div>
-        <div id="statusBalanceInfo" class="panel" style="margin-top:12px;" aria-live="polite">เลือกสินค้าและ Location เพื่อดูยอดแต่ละสถานะ</div>
-        <div class="toolbar" style="margin-top:12px;">
-          <button id="submitStatusChange" type="submit">ยืนยันเปลี่ยนสถานะ</button>
-          <button id="refreshStatusBtn" type="button" class="secondary">รีเฟรชยอด</button>
-        </div>
+        <div id="statusBalanceInfo" class="panel status-wizard-field" data-status-step="2" style="margin-top:12px;" aria-live="polite">เลือกสินค้าและ Location เพื่อดูยอดแต่ละสถานะ</div>
+        <div id="statusWizardReview" class="panel hidden" style="margin-top:12px;" aria-live="polite"></div>
+        <div id="statusWizardActions" class="withdrawal-wizard-actions"><button id="statusWizardCancelBtn" type="button" class="secondary">ยกเลิก</button><button id="statusWizardBackBtn" type="button" class="secondary" disabled>ย้อนกลับ</button><button id="statusWizardNextBtn" type="button">ถัดไป</button><button id="submitStatusChange" type="submit" class="hidden">ยืนยันเปลี่ยนสถานะ</button></div>
+        <div class="toolbar" style="margin-top:12px;"><button id="refreshStatusBtn" type="button" class="secondary">รีเฟรชยอด</button></div>
       </form>
       <div id="stockStatusMessage" class="status" role="status"></div>
       <h3>ประวัติเปลี่ยนสถานะล่าสุด</h3>
