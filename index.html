@@ -791,16 +791,25 @@ function catalogBrandMatches(p, brand) {
   };
   return (aliases[brand] || [brand]).some(alias => actual === normalizedCatalogValue(alias));
 }
+function catalogCategoryMatches(p, category) {
+  return normalizedCatalogValue(productCategory(p)) === normalizedCatalogValue(category);
+}
 function populateCatalogBrands() {
   $('catalogBrandSelect').innerHTML = '<option value="">เลือกแบรนด์สินค้า</option>' +
-    Object.keys(CATALOG_BRANDS).map(brand => '<option value="' + escapeHtml(brand) + '">' + escapeHtml(brand) + '</option>').join('');
+    Object.keys(CATALOG_BRANDS).map(brand => {
+      const count = productsData.filter(p => p.is_active !== false && catalogBrandMatches(p, brand)).length;
+      return '<option value="' + escapeHtml(brand) + '">' + escapeHtml(brand) + ' (' + count + ')</option>';
+    }).join('');
   populateCatalogCategories();
 }
 function populateCatalogCategories() {
   const brand = $('catalogBrandSelect').value;
   const categories = CATALOG_BRANDS[brand] || [];
   $('catalogCategorySelect').innerHTML = '<option value="">เลือกหมวดหมู่สินค้า</option>' +
-    categories.map(category => '<option value="' + escapeHtml(category) + '">' + escapeHtml(category) + '</option>').join('');
+    categories.map(category => {
+      const count = productsData.filter(p => p.is_active !== false && catalogBrandMatches(p, brand) && catalogCategoryMatches(p, category)).length;
+      return '<option value="' + escapeHtml(category) + '">' + escapeHtml(category) + ' (' + count + ')</option>';
+    }).join('');
 }
 function setCatalogWizardStep(step) {
   catalogWizardStep = Math.max(1, Math.min(3, step));
@@ -891,7 +900,7 @@ function renderProductCatalog() {
   const filtered = productsData.filter(p => {
     if (p.is_active === false || !catalogBrandMatches(p, brand)) return false;
     if (brand === 'FunTime') return true;
-    return productCategory(p) === category;
+    return catalogCategoryMatches(p, category);
   });
   $('productCatalogGrid').innerHTML = filtered.length ? filtered.map(p =>
     '<article class="product-card">' +
