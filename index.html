@@ -1974,7 +1974,27 @@ $('stockLookupBackBtn').addEventListener('click', () => {
 
 $('stockLookupNextBtn').addEventListener('click', () => {
   if (stockLookupStep === 1) {
+    const query = $('search').value.trim().toLowerCase();
+    if (!query) {
+      setStatus('status', 'กรุณากรอก SKU ชื่อสินค้า หรือ Barcode ก่อนตรวจสอบสต๊อก', true);
+      $('search').focus();
+      return;
+    }
+    const exactMatches = productsData.filter(p =>
+      [p.sku, p.barcode].some(value => String(value || '').trim().toLowerCase() === query)
+    );
+    const matches = exactMatches.length ? exactMatches : productsData.filter(p =>
+      [p.sku, p.product_name, p.barcode].some(value => String(value || '').toLowerCase().includes(query))
+    );
+    if (!matches.length) {
+      setStatus('status', 'ไม่พบสินค้า "' + $('search').value.trim() + '" กรุณาตรวจสอบคำค้นอีกครั้ง', true);
+      $('search').focus();
+      return;
+    }
+    // For an exact SKU/Barcode match, normalize to SKU so the results show only that product.
+    if (exactMatches.length === 1) $('search').value = exactMatches[0].sku;
     renderStock();
+    setStatus('status', 'พบสินค้า ' + matches.length + ' รายการ — แสดงยอดแยกตาม Location');
     setStockLookupStep(2);
   } else {
     resetStockLookupWizard();
@@ -2055,10 +2075,11 @@ $("stockScanBtn").addEventListener("click", async () => {
 
         setStatus(
           "stockScanStatus",
-          `สแกนได้แล้ว: ${decodedText} — กดดูยอดสต๊อกเพื่อตรวจสอบรายละเอียด`
+          `สแกนได้แล้ว: ${decodedText} — กด “ดูยอดสต๊อก” เพื่อแสดงรายละเอียด`
         );
+        setStatus('status', '');
         renderStock();
-        setStockLookupStep(2);
+        // Keep the wizard on step 1 so the employee can confirm by pressing “ดูยอดสต๊อก”.
       },
       () => {}
     );
