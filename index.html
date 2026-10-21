@@ -400,6 +400,8 @@
       <div>
         <label for="manageImageUrl">URL รูปสินค้า</label>
         <input id="manageImageUrl" type="url" placeholder="https://...">
+        <div id="manageImagePreview" class="selected-product-preview hidden" style="margin-top:8px;" aria-live="polite"></div>
+        <p id="manageImagePreviewStatus" class="muted" style="margin:4px 0 0;">ใส่ URL รูปสินค้าเพื่อดูตัวอย่างก่อนบันทึก (ไม่บังคับ)</p>
       </div>
 
       <div>
@@ -920,6 +922,7 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
         $('manageUnit').value = product.unit || 'ชิ้น';
         $('manageImageUrl').value = product.image_url || '';
         $('manageIsActive').value = String(product.is_active);
+        updateManageImagePreview();
         $('productManageTitle').textContent = 'แก้ไขสินค้า';
         $('saveProductBtn').textContent = 'บันทึกการแก้ไข';
         $('productManageModal').classList.remove('hidden');
@@ -2131,6 +2134,40 @@ $("stockScanBtn").addEventListener("click", async () => {
 
 $('productManageSearch').addEventListener('input', renderProductManagement);
 
+function updateManageImagePreview() {
+  const url = $('manageImageUrl').value.trim();
+  const preview = $('manageImagePreview');
+  const status = $('manageImagePreviewStatus');
+  preview.replaceChildren();
+  preview.classList.add('hidden');
+  if (!url) {
+    status.textContent = 'ใส่ URL รูปสินค้าเพื่อดูตัวอย่างก่อนบันทึก (ไม่บังคับ)';
+    return;
+  }
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid image URL protocol');
+  } catch (_) {
+    status.textContent = 'กรุณาตรวจสอบ URL รูปภาพ ต้องขึ้นต้นด้วย https:// หรือ http://';
+    return;
+  }
+  const image = document.createElement('img');
+  image.src = url;
+  image.alt = 'ตัวอย่างรูปสินค้า';
+  image.loading = 'lazy';
+  image.style.cssText = 'display:block;max-width:180px;max-height:150px;object-fit:contain;border-radius:8px;';
+  image.addEventListener('load', () => {
+    status.textContent = 'ตัวอย่างรูปสินค้า';
+    preview.classList.remove('hidden');
+  }, { once: true });
+  image.addEventListener('error', () => {
+    preview.classList.add('hidden');
+    status.textContent = 'โหลดรูปไม่สำเร็จ กรุณาตรวจสอบ URL หรือสิทธิ์เข้าถึงรูป';
+  }, { once: true });
+  preview.appendChild(image);
+}
+$('manageImageUrl').addEventListener('input', updateManageImagePreview);
+
 $('productManageForm').addEventListener('submit', async event => {
   event.preventDefault();
 
@@ -2189,6 +2226,7 @@ $('addProductBtn').addEventListener('click', () => {
   $('manageProductId').value = '';
   $('manageUnit').value = 'ชิ้น';
   $('manageIsActive').value = 'true';
+  updateManageImagePreview();
   $('productManageTitle').textContent = 'เพิ่มสินค้าใหม่';
   $('saveProductBtn').textContent = 'บันทึกสินค้า';
   setStatus('productManageStatus', '');
