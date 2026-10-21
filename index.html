@@ -452,12 +452,22 @@
       <div id="statusWizardProgress" class="withdrawal-progress" aria-hidden="true"><span class="active"></span><span></span><span></span><span></span></div>
       <form id="stockStatusForm">
         <div class="form-grid">
-          <div class="status-wizard-field" data-status-step="1">
-            <label for="statusProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
-            <input id="statusProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า">
+          <div class="status-wizard-field" data-status-step="1" style="grid-column:1/-1;">
+            <label for="statusBarcodeInput">สแกน Barcode หรือกรอก SKU</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input id="statusBarcodeInput" type="text" placeholder="สแกนหรือพิมพ์ Barcode / SKU" autocomplete="off">
+              <button id="statusStartScanBtn" type="button" style="width:auto;">📷 เปิดกล้องสแกน</button>
+              <button id="statusStopScanBtn" type="button" class="secondary hidden">หยุดสแกน</button>
+            </div>
+            <div id="statusScanReader" class="hidden" style="width:100%;max-width:420px;margin-top:10px;"></div>
+            <div id="statusScanMessage" class="status" role="status"></div>
           </div>
-          <div class="status-wizard-field" data-status-step="1">
-            <label for="statusProduct">สินค้า</label>
+          <div class="status-wizard-field" data-status-step="1" style="grid-column:1/-1;">
+            <label for="statusProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
+            <input id="statusProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า" autocomplete="off">
+            <div id="statusProductPickerResults" class="product-picker-results hidden" role="listbox" aria-label="ผลการค้นหาสินค้า"></div>
+            <div id="statusSelectedProductPreview" class="selected-product-preview hidden" aria-live="polite"></div>
+            <label for="statusProduct" style="margin-top:8px;">เลือกสินค้าที่ต้องการ</label>
             <select id="statusProduct" required></select>
           </div>
           <div class="status-wizard-field" data-status-step="2">
@@ -2005,7 +2015,66 @@ function renderStatusProductOptions() {
     '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.sku + ' — ' + p.product_name) + '</option>'
   ).join('');
   if (list.some(p => p.id === previous)) $('statusProduct').value = previous;
+  renderStatusProductPickerResults();
+  renderStatusSelectedProductPreview();
   renderStatusLocationOptions();
+}
+function renderStatusProductPickerResults() {
+  const input = $('statusProductSearch');
+  const results = $('statusProductPickerResults');
+  if (!results) return;
+  const term = input.value.trim().toLowerCase();
+  const active = productsData.filter(p => p.is_active && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
+  const shown = term ? active : active.slice(0, 20);
+  results.innerHTML = shown.length ? shown.map(p =>
+    '<button type="button" class="product-picker-option" role="option" aria-selected="' + (p.id === $('statusProduct').value) + '" data-status-picker-product="' + escapeHtml(p.id) + '">' +
+      (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+      '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(p.sku) + '</span><span class="product-picker-name">' + escapeHtml(p.product_name) + '</span><span class="product-picker-sku">Barcode: ' + escapeHtml(p.barcode || '—') + '</span></span></button>'
+  ).join('') : '<div class="muted" style="padding:12px;">ไม่พบสินค้า</div>';
+  results.classList.remove('hidden');
+  results.querySelectorAll('[data-status-picker-product]').forEach(button => button.addEventListener('click', () => {
+    const product = productsData.find(p => p.id === button.getAttribute('data-status-picker-product') && p.is_active);
+    if (!product) return;
+    $('statusProductSearch').value = product.sku;
+    $('statusBarcodeInput').value = product.sku;
+    $('statusProduct').value = product.id;
+    results.classList.add('hidden');
+    renderStatusSelectedProductPreview();
+    renderStatusLocationOptions();
+    setStatus('statusScanMessage', 'เลือกสินค้าแล้ว: ' + product.sku + ' — ' + product.product_name);
+  }));
+}
+function renderStatusSelectedProductPreview() {
+  const panel = $('statusSelectedProductPreview');
+  if (!panel) return;
+  const product = productsData.find(p => p.id === $('statusProduct').value && p.is_active);
+  if (!product) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+  panel.innerHTML = (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+    '<span class="product-picker-details"><span class="product-picker-sku">เลือกสินค้าแล้ว · ' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span></span>';
+  panel.classList.remove('hidden');
+}
+function selectStatusProductByCode(code) {
+  const normalized = String(code || '').trim();
+  if (!normalized) { setStatus('statusScanMessage', 'กรุณาสแกน Barcode หรือกรอก SKU สินค้า', true); return false; }
+  const key = normalized.toLowerCase();
+  const exact = productsData.filter(p => String(p.barcode || '').trim().toLowerCase() === key || String(p.sku || '').trim().toLowerCase() === key);
+  const matches = exact.filter(p => p.is_active);
+  if (matches.length !== 1) {
+    setStatus('statusScanMessage', matches.length > 1 ? 'พบ SKU/Barcode ซ้ำ กรุณาตรวจสอบข้อมูลสินค้า' : 'ไม่พบสินค้า SKU/Barcode: ' + normalized, true);
+    $('statusProductSearch').value = normalized;
+    renderStatusProductOptions();
+    return false;
+  }
+  const product = matches[0];
+  $('statusBarcodeInput').value = product.sku;
+  $('statusProductSearch').value = product.sku;
+  $('statusProduct').value = product.id;
+  renderStatusProductPickerResults();
+  $('statusProductPickerResults').classList.add('hidden');
+  renderStatusSelectedProductPreview();
+  renderStatusLocationOptions();
+  setStatus('statusScanMessage', 'พบสินค้า ' + product.sku + ' — ' + product.product_name);
+  return true;
 }
 function renderStatusLocationOptions() {
   const productId = $('statusProduct').value;
@@ -2044,7 +2113,53 @@ async function loadStockStatusHistory() {
   }).join('') : '<tr><td colspan="7">ยังไม่มีประวัติเปลี่ยนสถานะ</td></tr>';
 }
 $('statusProductSearch').addEventListener('input', renderStatusProductOptions);
-$('statusProduct').addEventListener('change', renderStatusLocationOptions);
+$('statusProductSearch').addEventListener('focus', renderStatusProductPickerResults);
+$('statusProduct').addEventListener('change', () => {
+  renderStatusSelectedProductPreview();
+  renderStatusLocationOptions();
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('#statusProductSearch') && !event.target.closest('#statusProductPickerResults')) {
+    $('statusProductPickerResults')?.classList.add('hidden');
+  }
+});
+$('statusBarcodeInput').addEventListener('keydown', event => {
+  if (event.key === 'Enter') { event.preventDefault(); selectStatusProductByCode($('statusBarcodeInput').value); }
+});
+let statusHtml5QrCode = null;
+let statusScannerRunning = false;
+async function stopStatusScanner() {
+  if (statusHtml5QrCode) {
+    try { if (statusScannerRunning) await statusHtml5QrCode.stop(); } catch (error) { console.warn('หยุดกล้องจัดการสถานะ:', error); }
+    try { await statusHtml5QrCode.clear(); } catch (error) { console.warn('ปิดหน้าสแกนจัดการสถานะ:', error); }
+  }
+  statusHtml5QrCode = null;
+  statusScannerRunning = false;
+  $('statusScanReader').classList.add('hidden');
+  $('statusStopScanBtn').classList.add('hidden');
+  $('statusStartScanBtn').classList.remove('hidden');
+}
+$('statusStartScanBtn').addEventListener('click', async () => {
+  if (statusScannerRunning || statusHtml5QrCode) return;
+  if (!window.Html5Qrcode) { setStatus('statusScanMessage', 'โหลดระบบสแกนไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ', true); return; }
+  $('statusScanReader').classList.remove('hidden');
+  $('statusStartScanBtn').classList.add('hidden');
+  $('statusStopScanBtn').classList.remove('hidden');
+  setStatus('statusScanMessage', 'กำลังเปิดกล้อง กรุณาอนุญาตให้เว็บไซต์ใช้กล้อง');
+  statusHtml5QrCode = new Html5Qrcode('statusScanReader');
+  try {
+    await statusHtml5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 150 } }, async decodedText => {
+      if (selectStatusProductByCode(decodedText)) await stopStatusScanner();
+    }, () => {});
+    statusScannerRunning = true;
+    setStatus('statusScanMessage', 'เปิดกล้องแล้ว กรุณาหันกล้องไปที่ Barcode สินค้า');
+  } catch (error) {
+    console.error('เปิดกล้องจัดการสถานะไม่สำเร็จ:', error);
+    setStatus('statusScanMessage', 'เปิดกล้องไม่สำเร็จ กรุณาอนุญาตใช้กล้องและลองใหม่', true);
+    await stopStatusScanner();
+  }
+});
+$('statusStopScanBtn').addEventListener('click', stopStatusScanner);
 $('statusLocation').addEventListener('change', renderStatusBalanceInfo);
 $('statusFrom').addEventListener('change', renderStatusBalanceInfo);
 $('statusTo').addEventListener('change', () => {
@@ -2065,7 +2180,9 @@ $('refreshStatusBtn').addEventListener('click', async () => {
     const product = productsData.find(p => p.id === $('statusProduct').value);
     const balance = balanceData.find(b => b.product_id === $('statusProduct').value && b.location_id === $('statusLocation').value);
     return '<h3>ตรวจสอบรายการก่อนยืนยัน</h3>' +
-      '<p><strong>สินค้า:</strong> ' + escapeHtml(product ? product.sku + ' — ' + product.product_name : 'ยังไม่ได้เลือก') + '</p>' +
+      (product ? '<div class="preview-layout" style="margin:12px 0;">' +
+        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" style="width:100px;height:100px;flex-basis:100px;" aria-hidden="true"></span>') +
+        '<div><p><strong>SKU:</strong> ' + escapeHtml(product.sku) + '</p><p><strong>ชื่อสินค้า:</strong> ' + escapeHtml(product.product_name) + '</p></div></div>' : '<p>ยังไม่ได้เลือกสินค้า</p>') +
       '<p><strong>Location:</strong> ' + escapeHtml(locationName($('statusLocation').value)) + '</p>' +
       '<p><strong>จำนวน:</strong> ' + escapeHtml($('statusQuantity').value) + '</p>' +
       '<p><strong>เปลี่ยนสถานะ:</strong> ' + escapeHtml(stockStatusLabels[$('statusFrom').value]) + ' → ' + escapeHtml(stockStatusLabels[$('statusTo').value]) + '</p>' +
