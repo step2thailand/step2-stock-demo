@@ -564,6 +564,7 @@
           <option value="IN">รับเข้า</option>
           <option value="OUT">เบิกออก</option>
           <option value="MOVE">ย้ายตำแหน่ง</option>
+          <option value="STATUS">เปลี่ยนสถานะสินค้า</option>
         </select>
         <input id="historyDateFilter" type="date" aria-label="กรองตามวันที่">
         <button id="historyRefreshBtn" class="secondary" type="button">รีเฟรชประวัติ</button>
@@ -1374,25 +1375,45 @@ db.from('products')
 
   async function loadHistory(version) {
     setStatus('historyStatus', 'กำลังโหลดประวัติ...');
-    const { data, error } = await db.from('stock_transactions')
-      .select('id, transaction_type, product_id, quantity, from_location_id, to_location_id, notes, status, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const [stockResult, statusResult] = await Promise.all([
+      db.from('stock_transactions')
+        .select('id, transaction_type, product_id, quantity, from_location_id, to_location_id, notes, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      db.from('stock_status_transactions')
+        .select('id, product_id, location_id, quantity, from_status, to_status, notes, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50)
+    ]);
 
     if (version !== authVersion || !currentUserId) return;
 
-    if (error) {
-      setStatus('historyStatus', 'โหลดประวัติไม่สำเร็จ: ' + error.message, true);
+    if (stockResult.error) {
+      setStatus('historyStatus', 'โหลดประวัติไม่สำเร็จ: ' + stockResult.error.message, true);
       return;
     }
 
-    historyData = data || [];
+    const ordinary = stockResult.data || [];
+    const statusChanges = statusResult.error ? [] : (statusResult.data || []).map(item => ({
+      ...item,
+      transaction_type: 'STATUS',
+      from_location_id: item.location_id,
+      to_location_id: item.location_id,
+      status_change_label: (stockStatusLabels[item.from_status] || item.from_status) + ' → ' + (stockStatusLabels[item.to_status] || item.to_status)
+    }));
+    historyData = [...ordinary, ...statusChanges]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 50);
     renderHistory();
-    setStatus('historyStatus', `แสดง ${historyData.length} รายการล่าสุด`);
+    if (statusResult.error) {
+      setStatus('historyStatus', 'โหลดประวัติรับ/เบิก/ย้ายได้ แต่ประวัติเปลี่ยนสถานะโหลดไม่ได้: ' + statusResult.error.message, true);
+    } else {
+      setStatus('historyStatus', `แสดง ${historyData.length} รายการล่าสุด (รวมเปลี่ยนสถานะ)`);
+    }
   }
 
   function renderHistory() {
-    const typeLabels = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง' };
+    const typeLabels = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง', STATUS: 'เปลี่ยนสถานะสินค้า' };
     const query = ($('historySearch')?.value || '').trim().toLowerCase();
     const typeFilter = $('historyTypeFilter')?.value || '';
     const dateFilter = $('historyDateFilter')?.value || '';
@@ -1406,7 +1427,8 @@ db.from('products')
       const searchable = [
         productName(item.product_id), item.notes || '',
         locationName(item.from_location_id), locationName(item.to_location_id),
-        typeLabels[item.transaction_type] || item.transaction_type
+        typeLabels[item.transaction_type] || item.transaction_type,
+        item.status_change_label || ''
       ].join(' ').toLowerCase();
       return searchable.includes(query);
     });
@@ -1414,7 +1436,7 @@ db.from('products')
     $('historyRows').innerHTML = filtered.length
       ? filtered.map(item => `<tr>
           <td>${escapeHtml(new Date(item.created_at).toLocaleString('th-TH'))}</td>
-          <td>${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}</td>
+          <td>${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}${item.status_change_label ? '<br><small>' + escapeHtml(item.status_change_label) + '</small>' : ''}</td>
           <td>${escapeHtml(productName(item.product_id))}</td>
           <td>${escapeHtml(item.quantity)}</td>
           <td>${escapeHtml(locationName(item.from_location_id))}</td>
@@ -2156,19 +2178,21 @@ function updateManageImagePreview() {
     return;
   }
   const image = document.createElement('img');
-  image.src = url;
   image.alt = 'ตัวอย่างรูปสินค้า';
-  image.loading = 'lazy';
-  image.style.cssText = 'display:block;max-width:180px;max-height:150px;object-fit:contain;border-radius:8px;';
+  image.loading = 'eager';
+  image.decoding = 'async';
+  image.style.cssText = 'display:block;max-width:180px;max-height:150px;min-width:80px;min-height:40px;object-fit:contain;border-radius:8px;';
+  preview.appendChild(image);
+  preview.classList.remove('hidden');
+  status.textContent = 'กำลังโหลดตัวอย่างรูป...';
   image.addEventListener('load', () => {
     status.textContent = 'ตัวอย่างรูปสินค้า';
-    preview.classList.remove('hidden');
   }, { once: true });
   image.addEventListener('error', () => {
     preview.classList.add('hidden');
-    status.textContent = 'โหลดรูปไม่สำเร็จ กรุณาตรวจสอบ URL หรือสิทธิ์เข้าถึงรูป';
+    status.textContent = 'แสดงรูปไม่ได้: ต้องใช้ลิงก์ไฟล์รูปโดยตรง (เช่น .jpg, .png, .webp) และเปิดดูได้โดยไม่ต้องล็อกอิน';
   }, { once: true });
-  preview.appendChild(image);
+  image.src = url;
 }
 $('manageImageUrl').addEventListener('input', updateManageImagePreview);
 
