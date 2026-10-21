@@ -852,7 +852,7 @@ function renderProductCatalog() {
   });
   $('productCatalogGrid').innerHTML = filtered.length ? filtered.map(p =>
     '<article class="product-card">' +
-    (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=\\'none\\'">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
+    (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=&quot;none&quot;">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
     '<div class="product-card-meta">แบรนด์: ' + escapeHtml(productBrand(p) || brand) + '</div>' +
     (brand === 'FunTime' ? '' : '<div class="product-card-meta">หมวดหมู่: ' + escapeHtml(productCategory(p) || category) + '</div>') +
     '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div><div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
