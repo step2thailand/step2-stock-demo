@@ -400,50 +400,64 @@
 </div>
 
     <section class="panel workflow-panel hidden" id="stockLookupPanel">
-      <h2>ยอดสต๊อกสินค้า</h2>
-      
-<div class="toolbar">
-  <input id="search" type="search"
-    placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode">
-  <button id="stockScanBtn" type="button" style="width:auto;">
-    📷 สแกน Barcode
-  </button>
-  <select id="floor">
-    <option value="">ทุกชั้น</option>
-    <option value="1">ชั้น 1</option>
-    <option value="2">ชั้น 2</option>
-  </select>
-</div>
-<div id="stockScanReader" class="hidden"
-  style="width:100%; max-width:420px; margin-top:12px;"></div>
-<div id="stockScanStatus" class="status" role="status"></div>
-      
-<div id="scannedProductDetails" class="panel hidden" style="margin-top:12px;">
-  <h3>รายละเอียดสินค้าที่สแกน</h3>
-  <div id="scannedProductInfo"></div>
-</div>
-
-
-        <button id="refreshBtn" class="secondary" type="button">รีเฟรช</button>
+      <div class="withdrawal-wizard-header">
+        <div>
+          <h2 id="stockLookupWizardTitle">1. ค้นหาสินค้า</h2>
+          <p class="muted">ค้นหาด้วย SKU / ชื่อสินค้า หรือสแกน Barcode แล้วตรวจสอบยอดแยกตาม Location</p>
+        </div>
+        <span id="stockLookupStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 2</span>
       </div>
-      <div id="status" class="status" role="status"></div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>ชื่อสินค้า</th>
-              <th>Location</th>
-              <th>ชั้น</th>
-              <th>สินค้าจริงใน Location</th>
-              <th>พร้อมขาย</th>
-              <th>จองแล้ว</th>
-              <th>เสียหาย</th>
-              <th>ยอดรวมทุก Location</th>
-            </tr>
-          </thead>
-          <tbody id="products"></tbody>
-        </table>
+      <div id="stockLookupProgress" class="withdrawal-progress" aria-hidden="true">
+        <span class="active"></span><span></span>
+      </div>
+
+      <div class="stock-lookup-step" data-stock-lookup-step="1">
+        <label for="search">ค้นหาสินค้า (SKU / ชื่อสินค้า / Barcode)</label>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="กรอก SKU / ชื่อสินค้า / Barcode" autocomplete="off">
+          <button id="stockScanBtn" type="button" style="width:auto;">📷 สแกน Barcode</button>
+        </div>
+        <div id="stockScanReader" class="hidden" style="width:100%;max-width:420px;margin-top:12px;"></div>
+        <div id="stockScanStatus" class="status" role="status"></div>
+        <div style="max-width:260px;margin-top:12px;">
+          <label for="floor">กรองตำแหน่งตามชั้น</label>
+          <select id="floor">
+            <option value="">ทุกชั้น</option>
+            <option value="1">ชั้น 1</option>
+            <option value="2">ชั้น 2</option>
+          </select>
+        </div>
+        <div id="scannedProductDetails" class="panel hidden" style="margin-top:12px;">
+          <h3>รายละเอียดสินค้าที่สแกน</h3>
+          <div id="scannedProductInfo"></div>
+        </div>
+      </div>
+
+      <div class="stock-lookup-step hidden" data-stock-lookup-step="2">
+        <div class="toolbar" style="align-items:center;justify-content:space-between;">
+          <div>
+            <strong>ผลการตรวจสอบสต๊อก</strong>
+            <div class="muted">แสดงยอดสินค้าจริง พร้อมขาย จองแล้ว และเสียหายแยกตาม Location</div>
+          </div>
+          <button id="refreshBtn" class="secondary" type="button">รีเฟรชข้อมูล</button>
+        </div>
+        <div id="status" class="status" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th><th>ชื่อสินค้า</th><th>Location</th><th>ชั้น</th>
+                <th>สินค้าจริงใน Location</th><th>พร้อมขาย</th><th>จองแล้ว</th><th>เสียหาย</th><th>ยอดรวมทุก Location</th>
+              </tr>
+            </thead>
+            <tbody id="products"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="withdrawal-wizard-actions">
+        <button id="stockLookupBackBtn" type="button" class="secondary" disabled>ย้อนกลับ</button>
+        <button id="stockLookupNextBtn" type="button">ดูยอดสต๊อก →</button>
       </div>
     </section>
 
@@ -1554,8 +1568,7 @@ $('logoutBtn').addEventListener('click', async () => {
 
       if (action === 'STOCK') {
         showWorkflowPanel('stockLookupPanel');
-        $('search').value = '';
-        renderStock();
+        resetStockLookupWizard();
         $('search').focus();
         return;
       }
@@ -1777,6 +1790,48 @@ let stockHtml5QrCode = null;
 let stockScannerRunning = false;
 let stockScanHandling = false;
 
+let stockLookupStep = 1;
+
+function setStockLookupStep(step) {
+  stockLookupStep = Math.max(1, Math.min(2, step));
+  document.querySelectorAll('[data-stock-lookup-step]').forEach(section => {
+    section.classList.toggle('hidden', Number(section.dataset.stockLookupStep) !== stockLookupStep);
+  });
+  $('stockLookupWizardTitle').textContent = stockLookupStep === 1 ? '1. ค้นหาสินค้า' : '2. ตรวจสอบยอดสต๊อก';
+  $('stockLookupStepLabel').textContent = `ขั้นที่ ${stockLookupStep} จาก 2`;
+  $('stockLookupProgress').querySelectorAll('span').forEach((bar, index) => {
+    bar.classList.toggle('active', index < stockLookupStep);
+  });
+  $('stockLookupBackBtn').disabled = stockLookupStep === 1;
+  $('stockLookupNextBtn').textContent = stockLookupStep === 1 ? 'ดูยอดสต๊อก →' : 'ค้นหาสินค้าอื่น';
+  $('stockLookupNextBtn').classList.toggle('secondary', stockLookupStep === 2);
+}
+
+function resetStockLookupWizard() {
+  $('search').value = '';
+  $('floor').value = '';
+  $('scannedProductDetails').classList.add('hidden');
+  $('scannedProductInfo').innerHTML = '';
+  setStatus('stockScanStatus', '');
+  setStockLookupStep(1);
+  renderStock();
+}
+
+$('stockLookupBackBtn').addEventListener('click', () => {
+  setStockLookupStep(1);
+  $('search').focus();
+});
+
+$('stockLookupNextBtn').addEventListener('click', () => {
+  if (stockLookupStep === 1) {
+    renderStock();
+    setStockLookupStep(2);
+  } else {
+    resetStockLookupWizard();
+    $('search').focus();
+  }
+});
+
 function showScannedProductDetails(barcode) {
   const normalized = String(barcode || "").trim().toLowerCase();
 
@@ -1902,8 +1957,10 @@ $("stockScanBtn").addEventListener("click", async () => {
 
         setStatus(
           "stockScanStatus",
-          `สแกนได้แล้ว: ${decodedText} — ตรวจสอบผลในตารางสต็อก`
+          `สแกนได้แล้ว: ${decodedText} — กดดูยอดสต๊อกเพื่อตรวจสอบรายละเอียด`
         );
+        renderStock();
+        setStockLookupStep(2);
       },
       () => {}
     );
