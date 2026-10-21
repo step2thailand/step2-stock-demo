@@ -1588,6 +1588,17 @@ $('logoutBtn').addEventListener('click', async () => {
     }
   }
   function playScanFeedback(success) {
+    // Vibrate where supported: short pulse for success, two pulses for failure.
+    // Vibration support depends on the phone, browser, and device settings.
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(success ? 55 : [85, 65, 85]);
+      }
+    } catch (error) {
+      console.warn('ระบบสั่นไม่พร้อมใช้งาน:', error);
+    }
+
+    // Sound is optional; vibration should still work if Web Audio is unavailable.
     if (!scanFeedbackAudio) return;
     if (scanFeedbackAudio.state === 'suspended') scanFeedbackAudio.resume().catch(() => {});
     if (scanFeedbackAudio.state !== 'running') return;
