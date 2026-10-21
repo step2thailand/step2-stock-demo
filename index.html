@@ -1572,10 +1572,14 @@ $('logoutBtn').addEventListener('click', async () => {
 
   $('transactionType').addEventListener('change', updateTransactionFields);
 
+  let workflowReturnFocus = null;
+
   function hideWorkflowPanels() {
     document.querySelectorAll('.workflow-panel').forEach(panel => {
       panel.classList.add('hidden');
       panel.classList.remove('workflow-popup-active');
+      panel.removeAttribute('role');
+      panel.removeAttribute('aria-modal');
     });
     document.body.classList.remove('workflow-modal-active');
   }
@@ -1588,15 +1592,27 @@ $('logoutBtn').addEventListener('click', async () => {
     hideWorkflowPanels();
     const modal = $('productManageModal');
     if (modal) modal.classList.add('hidden');
+    // Return keyboard focus to the menu tile that opened this popup.
+    const returnTarget = workflowReturnFocus;
+    workflowReturnFocus = null;
+    if (returnTarget && returnTarget.isConnected && !returnTarget.disabled && !returnTarget.classList.contains('hidden')) {
+      returnTarget.focus();
+    }
   }
 
   function showWorkflowPanel(id) {
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== document.documentElement) {
+      workflowReturnFocus = active;
+    }
     hideWorkflowPanels();
     const panel = $(id);
     if (!panel) return;
     panel.classList.remove('hidden');
     if (id !== 'transactionPanel') {
       panel.classList.add('workflow-popup-active');
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
       document.body.classList.add('workflow-modal-active');
       if (!panel.querySelector('.workflow-popup-close-row')) {
         const row = document.createElement('div');
@@ -1605,6 +1621,7 @@ $('logoutBtn').addEventListener('click', async () => {
         close.type = 'button';
         close.className = 'workflow-popup-close';
         close.textContent = 'ปิด กลับเมนู';
+        close.setAttribute('aria-label', 'ปิดหน้าต่างและกลับเมนูงานคลังสินค้า');
         close.addEventListener('click', closeWorkflowPopup);
         row.appendChild(close);
         panel.insertBefore(row, panel.firstChild);
