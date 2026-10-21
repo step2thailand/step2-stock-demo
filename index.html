@@ -1726,7 +1726,8 @@ $('logoutBtn').addEventListener('click', async () => {
       if (action === 'PRODUCTS') {
         showWorkflowPanel('productCatalogPanel');
         resetCatalogWizard();
-        $('catalogSearch').focus();
+        // The catalog now starts with brand selection; the legacy catalogSearch field no longer exists.
+        $('catalogBrandSelect').focus();
         return;
       }
 
