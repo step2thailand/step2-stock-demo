@@ -1817,6 +1817,8 @@ $('logoutBtn').addEventListener('click', async () => {
 
       if (action === 'HISTORY') {
         showWorkflowPanel('historyPanel');
+        // Refresh on every open so staff see the newest stock and status changes.
+        loadHistory(authVersion);
         return;
       }
 
