@@ -1123,13 +1123,13 @@ function renderSelectedProductPreview() {
 
 function fillTransactionSelects() {
   const term = $('transactionProductSearch').value.trim().toLowerCase();
-  const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
+  const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode, productBrand(p), productCategory(p)].join(' ').toLowerCase().includes(term));
 
   fillSelect(
     'transactionProduct',
     activeProducts,
     'id',
-    p => `${p.sku} — ${p.product_name}`,
+    p => `${p.sku} — ${p.product_name}${productBrand(p) ? ' · ' + productBrand(p) : ''}${productCategory(p) ? ' · ' + productCategory(p) : ''}`,
     'เลือกสินค้า'
   );
   renderSelectedProductPreview();
@@ -1518,8 +1518,10 @@ db.from('products')
         const dateKey = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
         if (dateKey !== dateFilter) return false;
       }
+      const historyProduct = productsData.find(product => product.id === item.product_id);
       const searchable = [
-        productName(item.product_id), item.notes || '',
+        productName(item.product_id), historyProduct?.product_name || '', historyProduct?.sku || '',
+        productBrand(historyProduct || {}), productCategory(historyProduct || {}), item.notes || '',
         locationName(item.from_location_id), locationName(item.to_location_id),
         typeLabels[item.transaction_type] || item.transaction_type,
         item.status_change_label || ''
