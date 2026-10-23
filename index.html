@@ -656,6 +656,8 @@
   // Reuse the same key if the exact same transaction is retried after a network error.
   let pendingTransactionSignature = null;
   let pendingTransactionKey = null;
+  let pendingStatusSignature = null;
+  let pendingStatusKey = null;
 
   function createIdempotencyKey(prefix = 'txn') {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -2760,11 +2762,20 @@ $('stockStatusForm').addEventListener('submit', async event => {
   const product = productsData.find(p => p.id === productId);
   if (statusWizardStep !== 4 || !validateStatusWizardStep()) return;
   const button = $('submitStatusChange');
+  const statusRequestSignature = JSON.stringify({
+    productId, locationId, quantity, fromStatus, toStatus, notes
+  });
+  if (pendingStatusSignature !== statusRequestSignature) {
+    pendingStatusSignature = statusRequestSignature;
+    pendingStatusKey = createIdempotencyKey('status');
+  }
+
   button.disabled = true;
   setStatus('stockStatusMessage', 'กำลังบันทึกการเปลี่ยนสถานะ...');
+  let statusChangeRecorded = false;
   try {
     const { error } = await db.rpc('process_stock_status_change', {
-      p_idempotency_key: createIdempotencyKey('status'),
+      p_idempotency_key: pendingStatusKey,
       p_product_id: productId,
       p_location_id: locationId,
       p_quantity: quantity,
@@ -2773,19 +2784,24 @@ $('stockStatusForm').addEventListener('submit', async event => {
       p_notes: notes
     });
     if (error) throw error;
+    statusChangeRecorded = true;
+    pendingStatusSignature = null;
+    pendingStatusKey = null;
     $('statusQuantity').value = '';
     $('statusNotes').value = '';
     $('statusProductSearch').value = '';
     $('statusBarcodeInput').value = '';
     $('statusProduct').value = '';
     $('statusLocation').value = '';
+    setStatusWizardStep(1);
     await refreshAll();
     renderStatusProductOptions();
-    setStatusWizardStep(1);
     await loadStockStatusHistory();
     setStatus('stockStatusMessage', 'เปลี่ยนสถานะสินค้าเรียบร้อยแล้ว');
   } catch (error) {
-    setStatus('stockStatusMessage', 'เปลี่ยนสถานะไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
+    setStatus('stockStatusMessage', statusChangeRecorded
+      ? 'บันทึกการเปลี่ยนสถานะแล้ว แต่รีเฟรชข้อมูลไม่สำเร็จ กรุณากดโหลดใหม่: ' + (error.message || 'เกิดข้อผิดพลาด')
+      : 'เปลี่ยนสถานะไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
   } finally {
     button.disabled = false;
   }
