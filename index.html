@@ -417,6 +417,25 @@
       </div>
 
       <div>
+        <label for="manageBrand">แบรนด์สินค้า</label>
+        <select id="manageBrand">
+          <option value="">เลือกแบรนด์</option>
+          <option value="Step2">Step2</option>
+          <option value="วังอนุบาล">วังอนุบาล</option>
+          <option value="FunTime">FunTime</option>
+          <option value="Simplay3">Simplay3</option>
+          <option value="อื่นๆ/รอกำหนด">อื่นๆ/รอกำหนด</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="manageCategory">หมวดหมู่สินค้า</label>
+        <select id="manageCategory">
+          <option value="">เลือกหมวดหมู่</option>
+        </select>
+      </div>
+
+      <div>
         <label for="manageBarcode">Barcode</label>
         <input id="manageBarcode">
       </div>
@@ -767,7 +786,23 @@ const CATALOG_BRANDS = {
   'Step2': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ'],
   'วังอนุบาล': ['เครื่องเล่นสนาม','มุมห้องสื่อการเรียนรู้','เฟอร์นิเจอร์','ม้ากระดก โยกเยกสปริง','อะไหล่ต่างๆ'],
   'FunTime': [],
-  'Simplay3': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ']
+  'Simplay3': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ'],
+  'อื่นๆ/รอกำหนด': []
+};
+
+function populateManageCategories(selectedCategory = '') {
+  const brand = $('manageBrand').value;
+  const categories = CATALOG_BRANDS[brand] || [];
+  const options = ['<option value="">เลือกหมวดหมู่</option>']
+    .concat(categories.map(category =>
+      '<option value="' + escapeHtml(category) + '">' + escapeHtml(category) + '</option>'
+    ));
+  if (selectedCategory && !categories.includes(selectedCategory)) {
+    options.push('<option value="' + escapeHtml(selectedCategory) + '">' +
+      escapeHtml(selectedCategory) + ' (ข้อมูลเดิม)</option>');
+  }
+  $('manageCategory').innerHTML = options.join('');
+  $('manageCategory').value = selectedCategory || '';
 };
 let catalogWizardStep = 1;
 let catalogSelectedBrand = '';
@@ -957,6 +992,15 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
         $('manageProductId').value = product.id;
         $('manageSku').value = product.sku || '';
         $('manageProductName').value = product.product_name || '';
+        const matchedBrand = Object.keys(CATALOG_BRANDS).find(brand => catalogBrandMatches(product, brand));
+        $('manageBrand').value = matchedBrand || productBrand(product) || '';
+        if ($('manageBrand').value && !Array.from($('manageBrand').options).some(option => option.value === $('manageBrand').value)) {
+          const legacyBrandOption = document.createElement('option');
+          legacyBrandOption.value = $('manageBrand').value;
+          legacyBrandOption.textContent = $('manageBrand').value + ' (ข้อมูลเดิม)';
+          $('manageBrand').appendChild(legacyBrandOption);
+        }
+        populateManageCategories(productCategory(product));
         $('manageBarcode').value = product.barcode || '';
         $('manageUnit').value = product.unit || 'ชิ้น';
         $('manageImageUrl').value = product.image_url || '';
@@ -2351,12 +2395,32 @@ $('productManageForm').addEventListener('submit', async event => {
       p_is_active: $('manageIsActive').value === 'true',
       p_product_id: productId
     });
-
     if (error) throw error;
+
+    let classificationProductId = productId;
+    if (!classificationProductId) {
+      const { data: createdProduct, error: lookupError } = await db
+        .from('products')
+        .select('id')
+        .eq('sku', sku)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!createdProduct?.id) throw new Error('บันทึกสินค้าแล้ว แต่ค้นหา ID ของสินค้าไม่พบ');
+      classificationProductId = createdProduct.id;
+    }
+
+    const { error: classificationError } = await db.rpc('set_product_classification', {
+      p_product_id: classificationProductId,
+      p_brand_name: $('manageBrand').value || null,
+      p_category_name: $('manageCategory').value || null
+    });
+    if (classificationError) {
+      throw new Error('บันทึกข้อมูลสินค้าแล้ว แต่บันทึกแบรนด์/หมวดหมู่ไม่สำเร็จ: ' + classificationError.message);
+    }
 
     setStatus(
       'productManageStatus',
-      productId ? 'แก้ไขสินค้าเรียบร้อยแล้ว' : 'เพิ่มสินค้าเรียบร้อยแล้ว'
+      productId ? 'แก้ไขสินค้า แบรนด์ และหมวดหมู่เรียบร้อยแล้ว' : 'เพิ่มสินค้า แบรนด์ และหมวดหมู่เรียบร้อยแล้ว'
     );
 
     await refreshAll();
@@ -2365,6 +2429,7 @@ $('productManageForm').addEventListener('submit', async event => {
     $('productManageModal').classList.add('hidden');
     $('productManageForm').reset();
     $('manageProductId').value = '';
+    populateManageCategories();
   } catch (error) {
     console.error('Product save error:', error);
     setStatus(
@@ -2377,9 +2442,13 @@ $('productManageForm').addEventListener('submit', async event => {
   }
 });
 
+$('manageBrand').addEventListener('change', () => populateManageCategories());
+
 $('addProductBtn').addEventListener('click', () => {
   $('productManageForm').reset();
   $('manageProductId').value = '';
+  $('manageBrand').value = '';
+  populateManageCategories();
   $('manageUnit').value = 'ชิ้น';
   $('manageIsActive').value = 'true';
   updateManageImagePreview();
@@ -2398,6 +2467,7 @@ $('cancelProductBtn').addEventListener('click', () => {
   $('productManageModal').classList.add('hidden');
   $('productManageForm').reset();
   $('manageProductId').value = '';
+  populateManageCategories();
   setStatus('productManageStatus', '');
 });
 
