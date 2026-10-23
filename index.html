@@ -2239,7 +2239,7 @@ function showScannedProductDetails(query) {
   const product = matches[0];
   const total = balanceData.filter(b => b.product_id === product.id).reduce((sum,b) => sum + Number(b.quantity || 0),0);
   panel.innerHTML = (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
-    '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span><span class="product-picker-sku">ยอดคงเหลือรวม: ' + total.toLocaleString() + ' ชิ้น</span></span>';
+    '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span><span class="product-picker-sku">ยอดคงเหลือรวม: ' + total.toLocaleString() + ' ชุด</span></span>';
   panel.classList.remove('hidden');
 }
 
