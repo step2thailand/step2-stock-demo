@@ -384,6 +384,8 @@
         <tr>
           <th>SKU</th>
           <th>ชื่อสินค้า</th>
+          <th>แบรนด์</th>
+          <th>หมวดหมู่</th>
           <th>Barcode</th>
           <th>หน่วย</th>
           <th>สถานะ</th>
@@ -697,7 +699,8 @@
         if (floor && String(location.floor_no) !== floor) continue;
 
         const searchable = [
-          product.sku, product.product_name, product.barcode
+          product.sku, product.product_name, product.barcode,
+          productBrand(product), productCategory(product)
         ].join(' ').toLowerCase();
 
         if (search && !searchable.includes(search)) continue;
@@ -955,7 +958,9 @@ function renderProductManagement() {
     const text = [
       p.sku,
       p.product_name,
-      p.barcode
+      p.barcode,
+      productBrand(p),
+      productCategory(p)
     ].join(' ').toLowerCase();
 
     return text.includes(search);
@@ -966,6 +971,8 @@ function renderProductManagement() {
         <tr>
           <td data-label="SKU">${escapeHtml(p.sku)}</td>
           <td data-label="ชื่อสินค้า">${escapeHtml(p.product_name)}</td>
+          <td data-label="แบรนด์">${escapeHtml(productBrand(p) || '-')}</td>
+          <td data-label="หมวดหมู่">${escapeHtml(productCategory(p) || '-')}</td>
           <td data-label="Barcode">${escapeHtml(p.barcode || '-')}</td>
           <td data-label="หน่วย">${escapeHtml(p.unit || 'ชุด')}</td>
           <td data-label="สถานะ">${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
@@ -977,7 +984,7 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
           </td>
         </tr>
       `).join('')
-    : '<tr><td colspan="6">ไม่พบสินค้า</td></tr>';
+    : '<tr><td colspan="8">ไม่พบสินค้า</td></tr>';
 
   $('productManageRows')
     .querySelectorAll('[data-edit-product]')
