@@ -657,6 +657,13 @@
   let pendingTransactionSignature = null;
   let pendingTransactionKey = null;
 
+  function createIdempotencyKey(prefix = 'txn') {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+    return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  }
+
   function setStatus(id, message, isError = false) {
     const el = $(id);
     el.textContent = message || '';
@@ -2138,7 +2145,7 @@ const destinationId =
     });
     if (pendingTransactionSignature !== requestSignature) {
       pendingTransactionSignature = requestSignature;
-      pendingTransactionKey = crypto.randomUUID();
+      pendingTransactionKey = createIdempotencyKey('txn');
     }
 
     busy = true;
@@ -2757,7 +2764,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
   setStatus('stockStatusMessage', 'กำลังบันทึกการเปลี่ยนสถานะ...');
   try {
     const { error } = await db.rpc('process_stock_status_change', {
-      p_idempotency_key: (crypto.randomUUID ? crypto.randomUUID() : 'status-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+      p_idempotency_key: createIdempotencyKey('status'),
       p_product_id: productId,
       p_location_id: locationId,
       p_quantity: quantity,
