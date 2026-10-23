@@ -407,7 +407,7 @@
     <input
       id="productManageSearch"
       type="search"
-      placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode"
+      placeholder="ค้นหา SKU / ชื่อสินค้า / แบรนด์ / หมวดหมู่ / Barcode"
     >
   </div>
 
@@ -419,6 +419,8 @@
         <tr>
           <th>SKU</th>
           <th>ชื่อสินค้า</th>
+          <th>แบรนด์</th>
+          <th>หมวดหมู่</th>
           <th>Barcode</th>
           <th>หน่วย</th>
           <th>สถานะ</th>
@@ -427,7 +429,7 @@
       </thead>
       <tbody id="productManageRows">
         <tr>
-          <td colspan="6">กำลังโหลดข้อมูล...</td>
+          <td colspan="8">กำลังโหลดข้อมูล...</td>
         </tr>
       </tbody>
     </table>
@@ -452,13 +454,32 @@
       </div>
 
       <div>
+        <label for="manageBrand">แบรนด์สินค้า</label>
+        <select id="manageBrand">
+          <option value="">เลือกแบรนด์</option>
+          <option value="Step2">Step2</option>
+          <option value="วังอนุบาล">วังอนุบาล</option>
+          <option value="FunTime">FunTime</option>
+          <option value="Simplay3">Simplay3</option>
+          <option value="อื่นๆ/รอกำหนด">อื่นๆ/รอกำหนด</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="manageCategory">หมวดหมู่สินค้า</label>
+        <select id="manageCategory">
+          <option value="">เลือกหมวดหมู่</option>
+        </select>
+      </div>
+
+      <div>
         <label for="manageBarcode">Barcode</label>
         <input id="manageBarcode">
       </div>
 
       <div>
         <label for="manageUnit">หน่วย</label>
-        <input id="manageUnit" value="ชิ้น" required>
+        <input id="manageUnit" value="ชุด" required>
       </div>
 
       <div>
@@ -534,7 +555,7 @@
           <table>
             <thead>
               <tr>
-                <th>SKU</th><th>ชื่อสินค้า</th><th>Location</th><th>ชั้น</th>
+                <th>SKU</th><th>ชื่อสินค้า</th><th>แบรนด์</th><th>หมวดหมู่</th><th>Location</th><th>ชั้น</th>
                 <th>สินค้าจริงใน Location</th><th>พร้อมขาย</th><th>จองแล้ว</th><th>เสียหาย</th><th>ยอดรวมทุก Location</th>
               </tr>
             </thead>
@@ -670,6 +691,15 @@
   // Reuse the same key if the exact same transaction is retried after a network error.
   let pendingTransactionSignature = null;
   let pendingTransactionKey = null;
+  let pendingStatusSignature = null;
+  let pendingStatusKey = null;
+
+  function createIdempotencyKey(prefix = 'txn') {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+    return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  }
 
   function setStatus(id, message, isError = false) {
     const el = $(id);
@@ -713,7 +743,8 @@
         if (floor && String(location.floor_no) !== floor) continue;
 
         const searchable = [
-          product.sku, product.product_name, product.barcode
+          product.sku, product.product_name, product.barcode,
+          productBrand(product), productCategory(product)
         ].join(' ').toLowerCase();
 
         if (search && !searchable.includes(search)) continue;
@@ -752,6 +783,8 @@
           return `<tr>
             <td>${escapeHtml(r.sku)}</td>
             <td>${escapeHtml(r.name)}</td>
+            <td>${escapeHtml(productBrand(product) || '—')}</td>
+            <td>${escapeHtml(productCategory(product) || '—')}</td>
             <td>${escapeHtml(r.location)}</td>
             <td>${escapeHtml(r.floor)}</td>
             <td>${escapeHtml(r.quantity)}</td>
@@ -761,7 +794,7 @@
             <td><strong>${escapeHtml(total.toLocaleString())}</strong></td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="9">ไม่พบข้อมูลสต๊อก</td></tr>';
+      : '<tr><td colspan="11">ไม่พบข้อมูลสต๊อก</td></tr>';
 
     $('skuCount').textContent = productsData.length.toLocaleString();
     $('stockCount').textContent = balanceData.reduce(
@@ -802,7 +835,23 @@ const CATALOG_BRANDS = {
   'Step2': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ'],
   'วังอนุบาล': ['เครื่องเล่นสนาม','มุมห้องสื่อการเรียนรู้','เฟอร์นิเจอร์','ม้ากระดก โยกเยกสปริง','อะไหล่ต่างๆ'],
   'FunTime': [],
-  'Simplay3': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ']
+  'Simplay3': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ'],
+  'อื่นๆ/รอกำหนด': ['อื่นๆ/รอกำหนด']
+};
+
+function populateManageCategories(selectedCategory = '') {
+  const brand = $('manageBrand').value;
+  const categories = CATALOG_BRANDS[brand] || [];
+  const options = ['<option value="">เลือกหมวดหมู่</option>']
+    .concat(categories.map(category =>
+      '<option value="' + escapeHtml(category) + '">' + escapeHtml(category) + '</option>'
+    ));
+  if (selectedCategory && !categories.includes(selectedCategory)) {
+    options.push('<option value="' + escapeHtml(selectedCategory) + '">' +
+      escapeHtml(selectedCategory) + ' (ข้อมูลเดิม)</option>');
+  }
+  $('manageCategory').innerHTML = options.join('');
+  $('manageCategory').value = selectedCategory || '';
 };
 let catalogWizardStep = 1;
 let catalogSelectedBrand = '';
@@ -943,7 +992,7 @@ function renderProductCatalog() {
     '<div class="product-card-meta">แบรนด์: ' + escapeHtml(productBrand(p) || brand) + '</div>' +
     (brand === 'FunTime' ? '' : '<div class="product-card-meta">หมวดหมู่: ' + escapeHtml(productCategory(p) || category) + '</div>') +
     '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div><div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
-    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div><div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
+    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div><div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชุด') + '</div></article>'
   ).join('') : '<p class="muted">ไม่พบสินค้าในแบรนด์/หมวดหมู่ที่เลือก หรือข้อมูลสินค้าในฐานข้อมูลยังไม่มีแบรนด์และหมวดหมู่ที่ตรงกัน กรุณาตรวจสอบข้อมูลสินค้า</p>';
   setStatus('catalogStatus','แสดง ' + filtered.length + ' รายการสินค้า');
 }
@@ -955,7 +1004,9 @@ function renderProductManagement() {
     const text = [
       p.sku,
       p.product_name,
-      p.barcode
+      p.barcode,
+      productBrand(p),
+      productCategory(p)
     ].join(' ').toLowerCase();
 
     return text.includes(search);
@@ -966,8 +1017,10 @@ function renderProductManagement() {
         <tr>
           <td data-label="SKU">${escapeHtml(p.sku)}</td>
           <td data-label="ชื่อสินค้า">${escapeHtml(p.product_name)}</td>
+          <td data-label="แบรนด์">${escapeHtml(productBrand(p) || '-')}</td>
+          <td data-label="หมวดหมู่">${escapeHtml(productCategory(p) || '-')}</td>
           <td data-label="Barcode">${escapeHtml(p.barcode || '-')}</td>
-          <td data-label="หน่วย">${escapeHtml(p.unit || 'ชิ้น')}</td>
+          <td data-label="หน่วย">${escapeHtml(p.unit || 'ชุด')}</td>
           <td data-label="สถานะ">${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
           <td data-label="จัดการ">
             
@@ -977,7 +1030,7 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
           </td>
         </tr>
       `).join('')
-    : '<tr><td colspan="6">ไม่พบสินค้า</td></tr>';
+    : '<tr><td colspan="8">ไม่พบสินค้า</td></tr>';
 
   $('productManageRows')
     .querySelectorAll('[data-edit-product]')
@@ -992,8 +1045,17 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
         $('manageProductId').value = product.id;
         $('manageSku').value = product.sku || '';
         $('manageProductName').value = product.product_name || '';
+        const matchedBrand = Object.keys(CATALOG_BRANDS).find(brand => catalogBrandMatches(product, brand));
+        $('manageBrand').value = matchedBrand || productBrand(product) || '';
+        if ($('manageBrand').value && !Array.from($('manageBrand').options).some(option => option.value === $('manageBrand').value)) {
+          const legacyBrandOption = document.createElement('option');
+          legacyBrandOption.value = $('manageBrand').value;
+          legacyBrandOption.textContent = $('manageBrand').value + ' (ข้อมูลเดิม)';
+          $('manageBrand').appendChild(legacyBrandOption);
+        }
+        populateManageCategories(productCategory(product));
         $('manageBarcode').value = product.barcode || '';
-        $('manageUnit').value = product.unit || 'ชิ้น';
+        $('manageUnit').value = product.unit || 'ชุด';
         $('manageImageUrl').value = product.image_url || '';
         $('manageIsActive').value = String(product.is_active);
         updateManageImagePreview();
@@ -1107,13 +1169,13 @@ function renderSelectedProductPreview() {
 
 function fillTransactionSelects() {
   const term = $('transactionProductSearch').value.trim().toLowerCase();
-  const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
+  const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode, productBrand(p), productCategory(p)].join(' ').toLowerCase().includes(term));
 
   fillSelect(
     'transactionProduct',
     activeProducts,
     'id',
-    p => `${p.sku} — ${p.product_name}`,
+    p => `${p.sku} — ${p.product_name}${productBrand(p) ? ' · ' + productBrand(p) : ''}${productCategory(p) ? ' · ' + productCategory(p) : ''}`,
     'เลือกสินค้า'
   );
   renderSelectedProductPreview();
@@ -1323,7 +1385,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
           item.product_id === productId && item.location_id === location.id
         );
         const stockLabel = (type === 'OUT' || type === 'MOVE')
-          ? ` — พร้อมขาย ${availableQty(balance).toLocaleString()} ${selectedProduct?.unit || 'ชิ้น'}`
+          ? ` — พร้อมขาย ${availableQty(balance).toLocaleString()} ${selectedProduct?.unit || 'ชุด'}`
           : '';
         return `${location.location_code} (ชั้น ${location.floor_no})${stockLabel}`;
       },
@@ -1351,7 +1413,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนรับสินค้าเข้า</h3><div class="preview-layout">' +
         (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
         '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
-        '<div>จำนวนรับเข้า: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>จำนวนรับเข้า: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
         '<div>Location ปลายทาง: ' + escapeHtml(locationName($('destinationLocation').value)) + '</div></div></div>';
       panel.classList.remove('hidden');
       return;
@@ -1367,7 +1429,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนย้ายตำแหน่ง</h3><div class="preview-layout">' +
         (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
         '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
-        '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
         '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (สินค้าจริง ' + current.toLocaleString() + ', พร้อมขาย ' + available.toLocaleString() + ')</div>' +
         '<div>ปลายทาง: ' + escapeHtml(locationName(destinationId)) + '</div>' +
         '<div><strong>' + (valid ? 'พร้อมขายที่ต้นทางหลังย้าย: ' + (available - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนที่พร้อมขาย') + '</strong></div></div></div>';
@@ -1388,10 +1450,10 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div>' +
       '<div>SKU: ' + escapeHtml(product.sku) + '</div>' +
       '<div>Location: ' + escapeHtml(locationName(sourceId)) + '</div>' +
-      '<div>สินค้าจริงทั้งหมด: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
-      '<div>พร้อมขาย: ' + available.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+      '<div>สินค้าจริงทั้งหมด: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
+      '<div>พร้อมขาย: ' + available.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
       '<div>จำนวนที่เบิก: ' + (rawQty ? escapeHtml(rawQty) : '—') + '</div>' +
-      '<div><strong>พร้อมขายหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดพร้อมขาย' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
+      '<div><strong>พร้อมขายหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดพร้อมขาย' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชุด')) + '</strong></div>' +
       (rawQty && Number.isSafeInteger(qty) && qty > available ? '<div class="error">จำนวนที่เบิกเกินยอดพร้อมขาย</div>' : '') +
       '</div></div>';
     panel.classList.remove('hidden');
@@ -1502,8 +1564,10 @@ db.from('products')
         const dateKey = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
         if (dateKey !== dateFilter) return false;
       }
+      const historyProduct = productsData.find(product => product.id === item.product_id);
       const searchable = [
-        productName(item.product_id), item.notes || '',
+        productName(item.product_id), historyProduct?.product_name || '', historyProduct?.sku || '',
+        productBrand(historyProduct || {}), productCategory(historyProduct || {}), item.notes || '',
         locationName(item.from_location_id), locationName(item.to_location_id),
         typeLabels[item.transaction_type] || item.transaction_type,
         item.status_change_label || ''
@@ -2118,13 +2182,14 @@ const destinationId =
     });
     if (pendingTransactionSignature !== requestSignature) {
       pendingTransactionSignature = requestSignature;
-      pendingTransactionKey = crypto.randomUUID();
+      pendingTransactionKey = createIdempotencyKey('txn');
     }
 
     busy = true;
     $('submitTransaction').disabled = true;
     setStatus('transactionStatus', 'กำลังบันทึกรายการ...');
 
+    let transactionRecorded = false;
     try {
       const { error } = await db.rpc('process_stock_transaction', {
         p_idempotency_key: pendingTransactionKey,
@@ -2138,15 +2203,19 @@ const destinationId =
 
       if (error) throw error;
 
+      transactionRecorded = true;
       pendingTransactionSignature = null;
       pendingTransactionKey = null;
       $('quantity').value = '';
       $('notes').value = '';
-      setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
+      setStatus('transactionStatus', 'รายการบันทึกแล้ว กำลังปรับปรุงยอดสต๊อก...');
       await refreshAll();
       if (type === 'OUT') await closeWithdrawalWizard();
+      else setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
     } catch (error) {
-      setStatus('transactionStatus', 'บันทึกไม่สำเร็จ: ' + error.message, true);
+      setStatus('transactionStatus', transactionRecorded
+        ? 'บันทึกรายการสำเร็จแล้ว แต่รีเฟรชยอดสต๊อกไม่สำเร็จ กรุณาโหลดข้อมูลใหม่: ' + (error.message || 'เกิดข้อผิดพลาด')
+        : 'บันทึกไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
     } finally {
       busy = false;
       $('submitTransaction').disabled = false;
@@ -2230,7 +2299,7 @@ function showScannedProductDetails(query) {
   const product = matches[0];
   const total = balanceData.filter(b => b.product_id === product.id).reduce((sum,b) => sum + Number(b.quantity || 0),0);
   panel.innerHTML = (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
-    '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span><span class="product-picker-sku">ยอดคงเหลือรวม: ' + total.toLocaleString() + ' ชิ้น</span></span>';
+    '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span><span class="product-picker-sku">ยอดคงเหลือรวม: ' + total.toLocaleString() + ' ชุด</span></span>';
   panel.classList.remove('hidden');
 }
 
@@ -2381,17 +2450,37 @@ $('productManageForm').addEventListener('submit', async event => {
       p_sku: sku,
       p_product_name: productName,
       p_barcode: $('manageBarcode').value.trim() || null,
-      p_unit: $('manageUnit').value.trim() || 'ชิ้น',
+      p_unit: $('manageUnit').value.trim() || 'ชุด',
       p_image_url: $('manageImageUrl').value.trim() || null,
       p_is_active: $('manageIsActive').value === 'true',
       p_product_id: productId
     });
-
     if (error) throw error;
+
+    let classificationProductId = productId;
+    if (!classificationProductId) {
+      const { data: createdProduct, error: lookupError } = await db
+        .from('products')
+        .select('id')
+        .eq('sku', sku)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!createdProduct?.id) throw new Error('บันทึกสินค้าแล้ว แต่ค้นหา ID ของสินค้าไม่พบ');
+      classificationProductId = createdProduct.id;
+    }
+
+    const { error: classificationError } = await db.rpc('set_product_classification', {
+      p_product_id: classificationProductId,
+      p_brand_name: $('manageBrand').value || null,
+      p_category_name: $('manageCategory').value || null
+    });
+    if (classificationError) {
+      throw new Error('บันทึกข้อมูลสินค้าแล้ว แต่บันทึกแบรนด์/หมวดหมู่ไม่สำเร็จ: ' + classificationError.message);
+    }
 
     setStatus(
       'productManageStatus',
-      productId ? 'แก้ไขสินค้าเรียบร้อยแล้ว' : 'เพิ่มสินค้าเรียบร้อยแล้ว'
+      productId ? 'แก้ไขสินค้า แบรนด์ และหมวดหมู่เรียบร้อยแล้ว' : 'เพิ่มสินค้า แบรนด์ และหมวดหมู่เรียบร้อยแล้ว'
     );
 
     await refreshAll();
@@ -2400,6 +2489,7 @@ $('productManageForm').addEventListener('submit', async event => {
     $('productManageModal').classList.add('hidden');
     $('productManageForm').reset();
     $('manageProductId').value = '';
+    populateManageCategories();
   } catch (error) {
     console.error('Product save error:', error);
     setStatus(
@@ -2412,10 +2502,14 @@ $('productManageForm').addEventListener('submit', async event => {
   }
 });
 
+$('manageBrand').addEventListener('change', () => populateManageCategories());
+
 $('addProductBtn').addEventListener('click', () => {
   $('productManageForm').reset();
   $('manageProductId').value = '';
-  $('manageUnit').value = 'ชิ้น';
+  $('manageBrand').value = '';
+  populateManageCategories();
+  $('manageUnit').value = 'ชุด';
   $('manageIsActive').value = 'true';
   updateManageImagePreview();
   $('productManageTitle').textContent = 'เพิ่มสินค้าใหม่';
@@ -2433,6 +2527,7 @@ $('cancelProductBtn').addEventListener('click', () => {
   $('productManageModal').classList.add('hidden');
   $('productManageForm').reset();
   $('manageProductId').value = '';
+  populateManageCategories();
   setStatus('productManageStatus', '');
 });
 
@@ -2707,11 +2802,20 @@ $('stockStatusForm').addEventListener('submit', async event => {
   const product = productsData.find(p => p.id === productId);
   if (statusWizardStep !== 4 || !validateStatusWizardStep()) return;
   const button = $('submitStatusChange');
+  const statusRequestSignature = JSON.stringify({
+    productId, locationId, quantity, fromStatus, toStatus, notes
+  });
+  if (pendingStatusSignature !== statusRequestSignature) {
+    pendingStatusSignature = statusRequestSignature;
+    pendingStatusKey = createIdempotencyKey('status');
+  }
+
   button.disabled = true;
   setStatus('stockStatusMessage', 'กำลังบันทึกการเปลี่ยนสถานะ...');
+  let statusChangeRecorded = false;
   try {
     const { error } = await db.rpc('process_stock_status_change', {
-      p_idempotency_key: (crypto.randomUUID ? crypto.randomUUID() : 'status-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+      p_idempotency_key: pendingStatusKey,
       p_product_id: productId,
       p_location_id: locationId,
       p_quantity: quantity,
@@ -2720,19 +2824,24 @@ $('stockStatusForm').addEventListener('submit', async event => {
       p_notes: notes
     });
     if (error) throw error;
+    statusChangeRecorded = true;
+    pendingStatusSignature = null;
+    pendingStatusKey = null;
     $('statusQuantity').value = '';
     $('statusNotes').value = '';
     $('statusProductSearch').value = '';
     $('statusBarcodeInput').value = '';
     $('statusProduct').value = '';
     $('statusLocation').value = '';
+    setStatusWizardStep(1);
     await refreshAll();
     renderStatusProductOptions();
-    setStatusWizardStep(1);
     await loadStockStatusHistory();
     setStatus('stockStatusMessage', 'เปลี่ยนสถานะสินค้าเรียบร้อยแล้ว');
   } catch (error) {
-    setStatus('stockStatusMessage', 'เปลี่ยนสถานะไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
+    setStatus('stockStatusMessage', statusChangeRecorded
+      ? 'บันทึกการเปลี่ยนสถานะแล้ว แต่รีเฟรชข้อมูลไม่สำเร็จ กรุณากดโหลดใหม่: ' + (error.message || 'เกิดข้อผิดพลาด')
+      : 'เปลี่ยนสถานะไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
   } finally {
     button.disabled = false;
   }
