@@ -2154,6 +2154,7 @@ const destinationId =
     $('submitTransaction').disabled = true;
     setStatus('transactionStatus', 'กำลังบันทึกรายการ...');
 
+    let transactionRecorded = false;
     try {
       const { error } = await db.rpc('process_stock_transaction', {
         p_idempotency_key: pendingTransactionKey,
@@ -2167,15 +2168,19 @@ const destinationId =
 
       if (error) throw error;
 
+      transactionRecorded = true;
       pendingTransactionSignature = null;
       pendingTransactionKey = null;
       $('quantity').value = '';
       $('notes').value = '';
-      setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
+      setStatus('transactionStatus', 'รายการบันทึกแล้ว กำลังปรับปรุงยอดสต๊อก...');
       await refreshAll();
       if (type === 'OUT') await closeWithdrawalWizard();
+      else setStatus('transactionStatus', 'บันทึกรายการสำเร็จ');
     } catch (error) {
-      setStatus('transactionStatus', 'บันทึกไม่สำเร็จ: ' + error.message, true);
+      setStatus('transactionStatus', transactionRecorded
+        ? 'บันทึกรายการสำเร็จแล้ว แต่รีเฟรชยอดสต๊อกไม่สำเร็จ กรุณาโหลดข้อมูลใหม่: ' + (error.message || 'เกิดข้อผิดพลาด')
+        : 'บันทึกไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
     } finally {
       busy = false;
       $('submitTransaction').disabled = false;
