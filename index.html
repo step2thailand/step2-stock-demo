@@ -88,6 +88,7 @@
     .menu-products { background: #0f766e; }
     .menu-receive { background: #15803d; }
     .menu-history { background: #475569; }
+    .menu-status { background: #b45309; }
     @media (max-width: 700px) {
       body { padding: 12px; }
       header { align-items: flex-start; }
@@ -104,6 +105,35 @@
       .metric-value { font-size: 23px; margin-top: 0; }
       .form-grid { grid-template-columns: 1fr; }
     }
+  @media (max-width: 700px) {
+    /* Render product-management rows as readable cards on phones, without horizontal scrolling. */
+    #productManageTable { min-width: 0; border-collapse: separate; border-spacing: 0; }
+    #productManageTable thead { display: none; }
+    #productManageTable, #productManageTable tbody, #productManageTable tr,
+    #productManageTable td { display: block; width: 100%; box-sizing: border-box; }
+    #productManageTable tr { border: 1px solid #e2e8f0; border-radius: 10px; margin: 0 0 10px; padding: 8px 10px; background: #fff; }
+    #productManageTable td { display: grid; grid-template-columns: minmax(82px, 34%) minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; overflow-wrap: anywhere; }
+    #productManageTable td:last-child { border-bottom: 0; }
+    #productManageTable td::before { content: attr(data-label); font-weight: 600; color: #64748b; }
+    #productManageTable td[colspan] { display: block; }
+    #productManageTable td[colspan]::before { content: none; }
+  }
+  @media (max-width: 700px) {
+    /* Keep transaction history readable on phones without horizontal table scrolling. */
+    #historyPanel .table-wrap { overflow: visible; }
+    #historyPanel table { min-width: 0; border-collapse: separate; border-spacing: 0; }
+    #historyPanel thead { display: none; }
+    #historyPanel table, #historyPanel tbody, #historyPanel tr,
+    #historyPanel td { display: block; width: 100%; box-sizing: border-box; }
+    #historyPanel tbody tr { border: 1px solid #e2e8f0; border-radius: 10px; margin: 0 0 10px; padding: 8px 10px; background: #fff; }
+    #historyPanel tbody td { display: grid; grid-template-columns: minmax(82px, 34%) minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; overflow-wrap: anywhere; }
+    #historyPanel tbody td:last-child { border-bottom: 0; }
+    #historyPanel tbody td::before { content: attr(data-label); font-weight: 600; color: #64748b; }
+    #historyPanel tbody td[colspan] { display: block; }
+    #historyPanel tbody td[colspan]::before { content: none; }
+    #historyPanel .toolbar { align-items: stretch; }
+    #historyPanel .toolbar input, #historyPanel .toolbar select, #historyPanel .toolbar button { width: 100%; min-width: 0; }
+  }
   .product-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
   .product-card { border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#fff; min-width:0; }
   .product-card img { width:100%; height:150px; object-fit:contain; background:#f8fafc; border-radius:8px; }
@@ -120,6 +150,15 @@
   .selected-product-preview { display:flex; align-items:center; gap:10px; margin-top:8px; padding:8px; border:1px solid #dbeafe; border-radius:9px; background:#eff6ff; }
   .selected-product-preview img, .selected-product-preview .product-picker-thumb { width:48px; height:48px; object-fit:contain; border-radius:6px; background:white; flex:0 0 48px; }
   .transaction-preview { border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-top:14px; background:#f8fafc; }
+  body.workflow-modal-active { overflow:hidden; }
+  body.workflow-modal-active::before { content:""; position:fixed; inset:0; background:rgba(15,23,42,.58); z-index:1000; }
+  body.workflow-modal-active .workflow-popup-active { display:block !important; position:fixed; z-index:1001; inset:3vh 3vw; width:auto; max-width:1100px; max-height:94vh; overflow:auto; margin:auto; padding:22px; box-shadow:0 20px 60px rgba(15,23,42,.28); }
+  .workflow-popup-close-row { display:flex; justify-content:flex-end; margin:-8px -8px 8px; }
+  .workflow-popup-close { width:auto; min-width:100px; background:#64748b; }
+  body.workflow-modal-active #productManageModal:not(.hidden) { position:fixed; z-index:1003; inset:50% auto auto 50%; transform:translate(-50%,-50%); width:min(620px, calc(100vw - 24px)); max-height:90dvh; overflow:auto; margin:0; box-shadow:0 0 0 100vmax rgba(15,23,42,.38), 0 20px 60px rgba(15,23,42,.35); }
+  @media (max-width:700px) {
+    body.workflow-modal-active .workflow-popup-active { inset:8px; max-height:calc(100dvh - 16px); padding:14px; }
+  }
   body.withdrawal-modal-active { overflow:hidden; }
   body.withdrawal-modal-active::before { content:""; position:fixed; inset:0; background:rgba(15,23,42,.58); z-index:1000; }
   body.withdrawal-modal-active #transactionPanel { display:block !important; position:fixed; z-index:1001; inset:50% auto auto 50%; transform:translate(-50%,-50%); width:min(680px, calc(100vw - 24px)); max-height:calc(100dvh - 24px); overflow:auto; margin:0; padding:22px; box-shadow:0 20px 60px rgba(15,23,42,.28); }
@@ -140,6 +179,41 @@
     .withdrawal-wizard-actions button { min-width:calc(50% - 8px); }
   }
 
+  /* Match stock-status workflow to the compact, centered withdrawal wizard popup. */
+  body.workflow-modal-active #stockStatusPanel.workflow-popup-active {
+    display:block !important; position:fixed; z-index:1001;
+    inset:50% auto auto 50%; transform:translate(-50%,-50%);
+    width:min(680px, calc(100vw - 24px)); max-width:680px;
+    max-height:calc(100dvh - 24px); overflow:auto; margin:0; padding:22px;
+    box-shadow:0 20px 60px rgba(15,23,42,.28);
+  }
+  body.workflow-modal-active #stockStatusPanel .form-grid {
+    grid-template-columns:minmax(0,1fr); gap:12px;
+  }
+  body.workflow-modal-active #stockStatusPanel .status-wizard-field[style*="grid-column"] {
+    grid-column:1 / -1;
+  }
+  body.workflow-modal-active #stockStatusPanel #statusWizardActions {
+    display:flex; gap:8px; flex-wrap:wrap;
+  }
+  body.workflow-modal-active #stockStatusPanel #statusWizardActions button {
+    flex:1; min-width:calc(50% - 8px);
+  }
+  body.workflow-modal-active #stockStatusPanel #statusWizardActions .secondary {
+    width:auto;
+  }
+  body.workflow-modal-active #stockStatusPanel #stockStatusHistoryRows {
+    display:block; max-height:220px; overflow:auto;
+  }
+  @media (max-width:600px) {
+    body.workflow-modal-active #stockStatusPanel.workflow-popup-active {
+      inset:50% auto auto 50%; width:calc(100vw - 20px);
+      max-height:calc(100dvh - 20px); padding:14px;
+    }
+    body.workflow-modal-active #stockStatusPanel #statusWizardActions button {
+      min-width:calc(50% - 8px);
+    }
+  }
   .transaction-preview img { width:100px; height:100px; object-fit:contain; background:white; border-radius:8px; }
   .preview-layout { display:flex; gap:12px; align-items:flex-start; }
   @media (max-width:600px) { .preview-layout { flex-direction:column; } }
@@ -183,6 +257,7 @@
         <button type="button" class="menu-products menu-square" data-warehouse-action="PRODUCTS"><span class="menu-title">รายการสินค้า</span><span class="menu-description">ดูสินค้าทั้งหมด</span></button>
         <button type="button" class="menu-add-product menu-square" data-warehouse-action="ADD_PRODUCT"><span class="menu-title">เพิ่มสินค้า (Admin)</span><span class="menu-description">เพิ่มสินค้าใหม่เข้าระบบ</span></button>
         <button type="button" class="menu-receive menu-square" data-warehouse-action="IN"><span class="menu-title">รับสินค้าเข้า</span><span class="menu-description">เพิ่มสต๊อกสินค้า</span></button>
+        <button type="button" class="menu-status menu-square" data-warehouse-action="STATUS"><span class="menu-title">จัดการสถานะสินค้า</span><span class="menu-description">พร้อมขาย / จอง / เสียหาย</span></button>
         <button type="button" class="menu-history" data-warehouse-action="HISTORY"><span class="menu-title">ประวัติทำรายการ</span></button>
       </div>
     </section>
@@ -292,11 +367,32 @@
 
 
 <section class="panel workflow-panel hidden" id="productCatalogPanel">
-  <h2>รายการสินค้าทั้งหมด</h2>
-  <p class="muted">ค้นหาสินค้าด้วย SKU, ชื่อสินค้า หรือ Barcode</p>
-  <div class="toolbar"><input id="catalogSearch" type="search" placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode"></div>
-  <div id="catalogStatus" class="status" role="status"></div>
-  <div id="productCatalogGrid" class="product-catalog-grid"></div>
+  <div class="withdrawal-wizard-header">
+    <div>
+      <h2 id="catalogWizardTitle">1. เลือกแบรนด์สินค้า</h2>
+      <p class="muted">เลือกแบรนด์ จากนั้นเลือกหมวดหมู่ เพื่อดูรายการสินค้าทั้งหมด</p>
+    </div>
+    <span id="catalogWizardStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 3</span>
+  </div>
+  <div id="catalogWizardProgress" class="withdrawal-progress" aria-hidden="true"><span class="active"></span><span></span><span></span></div>
+  <div class="catalog-wizard-step" data-catalog-step="1">
+    <label for="catalogBrandSelect">แบรนด์สินค้า</label>
+    <select id="catalogBrandSelect"><option value="">กำลังโหลดแบรนด์...</option></select>
+    <p class="muted">เลือกแบรนด์ที่ต้องการดู</p>
+  </div>
+  <div class="catalog-wizard-step hidden" data-catalog-step="2">
+    <label for="catalogCategorySelect">หมวดหมู่สินค้า</label>
+    <select id="catalogCategorySelect"><option value="">เลือกหมวดหมู่สินค้า</option></select>
+    <p class="muted">เลือกหมวดหมู่เพื่อแสดงสินค้าทั้งหมดในกลุ่มนี้</p>
+  </div>
+  <div class="catalog-wizard-step hidden" data-catalog-step="3">
+    <div id="catalogStatus" class="status" role="status"></div>
+    <div id="productCatalogGrid" class="product-catalog-grid"></div>
+  </div>
+  <div class="withdrawal-wizard-actions">
+    <button id="catalogBackBtn" type="button" class="secondary" disabled>ย้อนกลับ</button>
+    <button id="catalogNextBtn" type="button">เลือกแบรนด์ →</button>
+  </div>
 </section>
 
 <section id="productManagementSection" class="panel workflow-panel hidden">
@@ -317,8 +413,8 @@
 
   <div id="productManageStatus" class="status" role="status"></div>
 
-  <div style="overflow-x:auto;">
-    <table>
+  <div class="product-manage-table-wrap" style="overflow-x:auto;">
+    <table id="productManageTable">
       <thead>
         <tr>
           <th>SKU</th>
@@ -368,6 +464,8 @@
       <div>
         <label for="manageImageUrl">URL รูปสินค้า</label>
         <input id="manageImageUrl" type="url" placeholder="https://...">
+        <div id="manageImagePreview" class="selected-product-preview hidden" style="margin-top:8px;" aria-live="polite"></div>
+        <p id="manageImagePreviewStatus" class="muted" style="margin:4px 0 0;">ใส่ URL รูปสินค้าเพื่อดูตัวอย่างก่อนบันทึก (ไม่บังคับ)</p>
       </div>
 
       <div>
@@ -389,53 +487,152 @@
 </div>
 
     <section class="panel workflow-panel hidden" id="stockLookupPanel">
-      <h2>ยอดสต๊อกสินค้า</h2>
-      
-<div class="toolbar">
-  <input id="search" type="search"
-    placeholder="ค้นหา SKU / ชื่อสินค้า / Barcode">
-  <button id="stockScanBtn" type="button" style="width:auto;">
-    📷 สแกน Barcode
-  </button>
-  <select id="floor">
-    <option value="">ทุกชั้น</option>
-    <option value="1">ชั้น 1</option>
-    <option value="2">ชั้น 2</option>
-  </select>
-</div>
-<div id="stockScanReader" class="hidden"
-  style="width:100%; max-width:420px; margin-top:12px;"></div>
-<div id="stockScanStatus" class="status" role="status"></div>
-      
-<div id="scannedProductDetails" class="panel hidden" style="margin-top:12px;">
-  <h3>รายละเอียดสินค้าที่สแกน</h3>
-  <div id="scannedProductInfo"></div>
-</div>
-
-
-        <button id="refreshBtn" class="secondary" type="button">รีเฟรช</button>
+      <div class="withdrawal-wizard-header">
+        <div>
+          <h2 id="stockLookupWizardTitle">1. ค้นหาสินค้า</h2>
+          <p class="muted">ค้นหาด้วย SKU / ชื่อสินค้า หรือสแกน Barcode แล้วตรวจสอบยอดแยกตาม Location</p>
+        </div>
+        <span id="stockLookupStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 2</span>
       </div>
-      <div id="status" class="status" role="status"></div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>ชื่อสินค้า</th>
-              <th>Location</th>
-              <th>ชั้น</th>
-              <th>จำนวนใน Location</th>
-              <th>ยอดรวมทุก Location</th>
-            </tr>
-          </thead>
-          <tbody id="products"></tbody>
-        </table>
+      <div id="stockLookupProgress" class="withdrawal-progress" aria-hidden="true">
+        <span class="active"></span><span></span>
+      </div>
+
+      <div class="stock-lookup-step" data-stock-lookup-step="1">
+        <label for="search">ค้นหาสินค้า (SKU / ชื่อสินค้า / Barcode)</label>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="กรอก SKU / ชื่อสินค้า / Barcode" autocomplete="off">
+          <button id="stockScanBtn" type="button" style="width:auto;">📷 สแกน Barcode</button>
+        </div>
+        <div id="stockScanReader" class="hidden" style="width:100%;max-width:420px;margin-top:12px;"></div>
+        <div id="stockScanStatus" class="status" role="status"></div>
+        <div id="stockProductPreview" class="selected-product-preview hidden" aria-live="polite"></div>
+        <div style="max-width:260px;margin-top:12px;">
+          <label for="floor">กรองตำแหน่งตามชั้น</label>
+          <select id="floor">
+            <option value="">ทุกชั้น</option>
+            <option value="1">ชั้น 1</option>
+            <option value="2">ชั้น 2</option>
+          </select>
+        </div>
+        <div id="scannedProductDetails" class="panel hidden" style="margin-top:12px;">
+          <h3>รายละเอียดสินค้าที่สแกน</h3>
+          <div id="scannedProductInfo"></div>
+        </div>
+      </div>
+
+      <div class="stock-lookup-step hidden" data-stock-lookup-step="2">
+        <div class="toolbar" style="align-items:center;justify-content:space-between;">
+          <div>
+            <strong>ผลการตรวจสอบสต๊อก</strong>
+            <div class="muted">แสดงยอดสินค้าจริง พร้อมขาย จองแล้ว และเสียหายแยกตาม Location</div>
+          </div>
+          <button id="refreshBtn" class="secondary" type="button">รีเฟรชข้อมูล</button>
+        </div>
+        <div id="status" class="status" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th><th>ชื่อสินค้า</th><th>Location</th><th>ชั้น</th>
+                <th>สินค้าจริงใน Location</th><th>พร้อมขาย</th><th>จองแล้ว</th><th>เสียหาย</th><th>ยอดรวมทุก Location</th>
+              </tr>
+            </thead>
+            <tbody id="products"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="withdrawal-wizard-actions">
+        <button id="stockLookupBackBtn" type="button" class="secondary" disabled>ย้อนกลับ</button>
+        <button id="stockLookupNextBtn" type="button">ดูยอดสต๊อก →</button>
+      </div>
+    </section>
+
+    <section class="panel workflow-panel hidden" id="stockStatusPanel">
+      <div id="statusWizardHeader" class="withdrawal-wizard-header"><div><h2 id="statusWizardTitle">1. เลือกสินค้า</h2><p class="muted">จัดการสถานะสินค้าโดยทำตามขั้นตอน และตรวจสอบก่อนยืนยัน</p></div><span id="statusWizardStepLabel" class="withdrawal-step-label">ขั้นที่ 1 จาก 4</span></div>
+      <div id="statusWizardProgress" class="withdrawal-progress" aria-hidden="true"><span class="active"></span><span></span><span></span><span></span></div>
+      <form id="stockStatusForm">
+        <div class="form-grid">
+          <div class="status-wizard-field" data-status-step="1" style="grid-column:1/-1;">
+            <label for="statusBarcodeInput">สแกน Barcode หรือกรอก SKU</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input id="statusBarcodeInput" type="text" placeholder="สแกนหรือพิมพ์ Barcode / SKU" autocomplete="off">
+              <button id="statusStartScanBtn" type="button" style="width:auto;">📷 เปิดกล้องสแกน</button>
+              <button id="statusStopScanBtn" type="button" class="secondary hidden">หยุดสแกน</button>
+            </div>
+            <div id="statusScanReader" class="hidden" style="width:100%;max-width:420px;margin-top:10px;"></div>
+            <div id="statusScanMessage" class="status" role="status"></div>
+          </div>
+          <div class="status-wizard-field" data-status-step="1" style="grid-column:1/-1;">
+            <label for="statusProductSearch">ค้นหาสินค้า (SKU / ชื่อ / Barcode)</label>
+            <input id="statusProductSearch" type="search" placeholder="พิมพ์ SKU หรือชื่อสินค้า" autocomplete="off">
+            <div id="statusProductPickerResults" class="product-picker-results hidden" role="listbox" aria-label="ผลการค้นหาสินค้า"></div>
+            <div id="statusSelectedProductPreview" class="selected-product-preview hidden" aria-live="polite"></div>
+            <label for="statusProduct" style="margin-top:8px;">เลือกสินค้าที่ต้องการ</label>
+            <select id="statusProduct" required></select>
+          </div>
+          <div class="status-wizard-field" data-status-step="2">
+            <label for="statusLocation">Location</label>
+            <select id="statusLocation" required></select>
+          </div>
+          <div class="status-wizard-field" data-status-step="2">
+            <label for="statusFrom">สถานะปัจจุบัน</label>
+            <select id="statusFrom" required>
+              <option value="available">พร้อมขาย</option>
+              <option value="reserved">จองแล้ว</option>
+              <option value="damaged">เสียหาย</option>
+            </select>
+          </div>
+          <div class="status-wizard-field" data-status-step="3">
+            <label for="statusTo">เปลี่ยนเป็น</label>
+            <select id="statusTo" required>
+              <option value="reserved">จองแล้ว</option>
+              <option value="damaged">เสียหาย</option>
+              <option value="available">พร้อมขาย</option>
+            </select>
+          </div>
+          <div class="status-wizard-field" data-status-step="3">
+            <label for="statusQuantity">จำนวนที่เปลี่ยน</label>
+            <input id="statusQuantity" type="number" min="1" step="1" required>
+          </div>
+          <div class="status-wizard-field" data-status-step="3" style="grid-column:1/-1;">
+            <label for="statusNotes">หมายเหตุ (ถ้ามี)</label>
+            <input id="statusNotes" type="text" maxlength="500" placeholder="เช่น จองให้ลูกค้า / พบสินค้าชำรุด">
+          </div>
+        </div>
+        <div id="statusBalanceInfo" class="panel status-wizard-field" data-status-step="2" style="margin-top:12px;" aria-live="polite">เลือกสินค้าและ Location เพื่อดูยอดแต่ละสถานะ</div>
+        <div id="statusWizardReview" class="panel hidden" style="margin-top:12px;" aria-live="polite"></div>
+        <div id="statusWizardActions" class="withdrawal-wizard-actions"><button id="statusWizardCancelBtn" type="button" class="secondary">ยกเลิก</button><button id="statusWizardBackBtn" type="button" class="secondary" disabled>ย้อนกลับ</button><button id="statusWizardNextBtn" type="button">ถัดไป</button><button id="submitStatusChange" type="submit" class="hidden">ยืนยันเปลี่ยนสถานะ</button></div>
+        <div class="toolbar" style="margin-top:12px;"><button id="refreshStatusBtn" type="button" class="secondary">รีเฟรชยอด</button></div>
+      </form>
+      <div id="stockStatusMessage" class="status" role="status"></div>
+      <div class="status-wizard-field" data-status-step="4">
+        <h3>ประวัติเปลี่ยนสถานะล่าสุด</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>วันและเวลา</th><th>สินค้า</th><th>Location</th><th>จำนวน</th><th>จาก</th><th>เป็น</th><th>หมายเหตุ</th></tr></thead>
+            <tbody id="stockStatusHistoryRows"><tr><td colspan="7">กำลังโหลดข้อมูล...</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
     <section class="panel workflow-panel hidden" id="historyPanel">
       <h2>ประวัติธุรกรรมล่าสุด</h2>
-      <p class="muted">แสดงรายการล่าสุดไม่เกิน 50 รายการ</p>
+      <p class="muted">แสดงรายการล่าสุดไม่เกิน 50 รายการ สามารถค้นหาและกรองรายการได้</p>
+      <div class="toolbar">
+        <input id="historySearch" type="search" placeholder="ค้นหา SKU / หมายเหตุ / Location" aria-label="ค้นหาประวัติ">
+        <select id="historyTypeFilter" aria-label="กรองตามประเภทธุรกรรม">
+          <option value="">ทุกประเภท</option>
+          <option value="IN">รับเข้า</option>
+          <option value="OUT">เบิกออก</option>
+          <option value="MOVE">ย้ายตำแหน่ง</option>
+          <option value="STATUS">เปลี่ยนสถานะสินค้า</option>
+        </select>
+        <input id="historyDateFilter" type="date" aria-label="กรองตามวันที่">
+        <button id="historyRefreshBtn" class="secondary" type="button">รีเฟรชประวัติ</button>
+      </div>
       <div id="historyStatus" class="status" role="status"></div>
       <div class="table-wrap">
         <table>
@@ -526,7 +723,10 @@
           name: product.product_name,
           location: location.location_code,
           floor: location.floor_no,
-          quantity: balance.quantity
+          quantity: balance.quantity,
+          available: availableQty(balance),
+          reserved: Number(balance.reserved_quantity || 0),
+          damaged: Number(balance.damaged_quantity || 0)
         });
       }
     }
@@ -555,10 +755,13 @@
             <td>${escapeHtml(r.location)}</td>
             <td>${escapeHtml(r.floor)}</td>
             <td>${escapeHtml(r.quantity)}</td>
+            <td>${escapeHtml(r.available)}</td>
+            <td>${escapeHtml(r.reserved)}</td>
+            <td>${escapeHtml(r.damaged)}</td>
             <td><strong>${escapeHtml(total.toLocaleString())}</strong></td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="6">ไม่พบข้อมูลสต๊อก</td></tr>';
+      : '<tr><td colspan="9">ไม่พบข้อมูลสต๊อก</td></tr>';
 
     $('skuCount').textContent = productsData.length.toLocaleString();
     $('stockCount').textContent = balanceData.reduce(
@@ -595,18 +798,154 @@
   }
 
 
+const CATALOG_BRANDS = {
+  'Step2': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ'],
+  'วังอนุบาล': ['เครื่องเล่นสนาม','มุมห้องสื่อการเรียนรู้','เฟอร์นิเจอร์','ม้ากระดก โยกเยกสปริง','อะไหล่ต่างๆ'],
+  'FunTime': [],
+  'Simplay3': ['กระบะทรายและโต๊ะเล่นน้ำ','กระดานลื่น สไลเดอร์และชิงช้า','ห้องครัวคุณหนู','เฟอร์นิเจอร์เด็ก','โยกเยกและรถเข็นเด็ก','บ้านจำลอง','อะไหล่ต่างๆ']
+};
+let catalogWizardStep = 1;
+let catalogSelectedBrand = '';
+let catalogSelectedCategory = '';
+function productBrand(p) {
+  return String(p.brand_name ?? p.brand ?? p.product_brand ?? p.manufacturer ?? p.brandName ?? '').trim();
+}
+function productCategory(p) {
+  return String(p.category_name ?? p.category ?? p.product_category ?? p.category_label ?? p.productCategory ?? '').trim();
+}
+function normalizedCatalogValue(value) {
+  return String(value || '').trim().toLowerCase().replace(/[\\s_-]+/g,'');
+}
+function catalogBrandMatches(p, brand) {
+  const actual = normalizedCatalogValue(productBrand(p));
+  const aliases = {
+    'Step2': ['step2','step','step2thailand'],
+    'วังอนุบาล': ['วังอนุบาล','wanganubal','wanganubalinventory'],
+    'FunTime': ['funtime','fun time'],
+    'Simplay3': ['simplay3','simplay']
+  };
+  return (aliases[brand] || [brand]).some(alias => actual === normalizedCatalogValue(alias));
+}
+function catalogCategoryMatches(p, category) {
+  return normalizedCatalogValue(productCategory(p)) === normalizedCatalogValue(category);
+}
+function populateCatalogBrands() {
+  $('catalogBrandSelect').innerHTML = '<option value="">เลือกแบรนด์สินค้า</option>' +
+    Object.keys(CATALOG_BRANDS).map(brand => {
+      const count = productsData.filter(p => p.is_active !== false && catalogBrandMatches(p, brand)).length;
+      return '<option value="' + escapeHtml(brand) + '">' + escapeHtml(brand) + ' (' + count + ')</option>';
+    }).join('');
+  populateCatalogCategories();
+}
+function populateCatalogCategories() {
+  const brand = $('catalogBrandSelect').value;
+  const categories = CATALOG_BRANDS[brand] || [];
+  $('catalogCategorySelect').innerHTML = '<option value="">เลือกหมวดหมู่สินค้า</option>' +
+    categories.map(category => {
+      const count = productsData.filter(p => p.is_active !== false && catalogBrandMatches(p, brand) && catalogCategoryMatches(p, category)).length;
+      return '<option value="' + escapeHtml(category) + '">' + escapeHtml(category) + ' (' + count + ')</option>';
+    }).join('');
+}
+function setCatalogWizardStep(step) {
+  catalogWizardStep = Math.max(1, Math.min(3, step));
+  document.querySelectorAll('[data-catalog-step]').forEach(section => {
+    section.classList.toggle('hidden', Number(section.dataset.catalogStep) !== catalogWizardStep);
+  });
+  const isFunTime = catalogSelectedBrand === 'FunTime';
+  const totalSteps = isFunTime ? 2 : 3;
+  const displayedStep = isFunTime && catalogWizardStep === 3 ? 2 : catalogWizardStep;
+  const titles = isFunTime
+    ? ['1. เลือกแบรนด์สินค้า','', '2. สินค้าทั้งหมด — FunTime']
+    : ['1. เลือกแบรนด์สินค้า','2. เลือกหมวดหมู่สินค้า','3. รายการสินค้า'];
+  $('catalogWizardTitle').textContent = titles[catalogWizardStep - 1] || 'รายการสินค้า';
+  $('catalogWizardStepLabel').textContent = 'ขั้นที่ ' + displayedStep + ' จาก ' + totalSteps;
+  $('catalogWizardProgress').querySelectorAll('span').forEach((bar,index) => {
+    bar.classList.toggle('active', isFunTime ? index < displayedStep : index < catalogWizardStep);
+    bar.classList.toggle('hidden', isFunTime && index === 1);
+  });
+  $('catalogBackBtn').disabled = catalogWizardStep === 1;
+  $('catalogNextBtn').textContent = catalogWizardStep === 1 ? 'เลือกหมวดหมู่ →' : catalogWizardStep === 2 ? 'แสดงสินค้า →' : 'เลือกแบรนด์ใหม่';
+  $('catalogNextBtn').classList.toggle('secondary', catalogWizardStep === 3);
+}
+function resetCatalogWizard() {
+  catalogSelectedBrand = '';
+  catalogSelectedCategory = '';
+  $('catalogBrandSelect').value = '';
+  populateCatalogCategories();
+  $('catalogCategorySelect').value = '';
+  $('productCatalogGrid').innerHTML = '';
+  setStatus('catalogStatus','');
+  setCatalogWizardStep(1);
+}
+$('catalogBrandSelect').addEventListener('change', () => {
+  catalogSelectedBrand = $('catalogBrandSelect').value;
+  catalogSelectedCategory = '';
+  populateCatalogCategories();
+  if (!catalogSelectedBrand) {
+    $('productCatalogGrid').innerHTML = '';
+    setStatus('catalogStatus','');
+    setCatalogWizardStep(1);
+  } else if (CATALOG_BRANDS[catalogSelectedBrand].length === 0) {
+    // FunTime has no category step: selecting the brand shows every product for that brand immediately.
+    renderProductCatalog();
+    setCatalogWizardStep(3);
+  } else {
+    setCatalogWizardStep(2);
+    setStatus('catalogStatus','');
+  }
+});
+$('catalogCategorySelect').addEventListener('change', () => {
+  catalogSelectedCategory = $('catalogCategorySelect').value;
+});
+$('catalogBackBtn').addEventListener('click', () => {
+  if (catalogWizardStep === 3 && catalogSelectedBrand === 'FunTime') {
+    resetCatalogWizard();
+  } else {
+    setCatalogWizardStep(catalogWizardStep - 1);
+  }
+});
+$('catalogNextBtn').addEventListener('click', () => {
+  if (catalogWizardStep === 1) {
+    if (!$('catalogBrandSelect').value) {
+      setStatus('catalogStatus','กรุณาเลือกแบรนด์สินค้า',true);
+      return;
+    }
+    // For FunTime, the brand change handler already opens the complete product list.
+    if (CATALOG_BRANDS[$('catalogBrandSelect').value].length) {
+      populateCatalogCategories();
+      setCatalogWizardStep(2);
+      setStatus('catalogStatus','');
+    }
+  } else if (catalogWizardStep === 2) {
+    if (!$('catalogCategorySelect').value) {
+      setStatus('catalogStatus','กรุณาเลือกหมวดหมู่สินค้า',true);
+      return;
+    }
+    catalogSelectedBrand = $('catalogBrandSelect').value;
+    catalogSelectedCategory = $('catalogCategorySelect').value;
+    renderProductCatalog();
+    setCatalogWizardStep(3);
+  } else {
+    resetCatalogWizard();
+  }
+});
 function renderProductCatalog() {
-  const search = $('catalogSearch').value.trim().toLowerCase();
-  const filtered = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(search));
+  const brand = catalogSelectedBrand;
+  const category = catalogSelectedCategory;
+  const filtered = productsData.filter(p => {
+    if (p.is_active === false || !catalogBrandMatches(p, brand)) return false;
+    if (brand === 'FunTime') return true;
+    return catalogCategoryMatches(p, category);
+  });
   $('productCatalogGrid').innerHTML = filtered.length ? filtered.map(p =>
     '<article class="product-card">' +
-    (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
-    '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div>' +
-    '<div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
-    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div>' +
-    '<div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
-  ).join('') : '<p class="muted">ไม่พบสินค้า</p>';
-  setStatus('catalogStatus', 'แสดง ' + filtered.length + ' รายการสินค้า');
+    (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.product_name) + '" loading="lazy" onerror="this.style.display=&quot;none&quot;">' : '<div style="height:150px;display:grid;place-items:center;background:#f8fafc;border-radius:8px;color:#64748b;">ไม่มีรูปสินค้า</div>') +
+    '<div class="product-card-meta">แบรนด์: ' + escapeHtml(productBrand(p) || brand) + '</div>' +
+    (brand === 'FunTime' ? '' : '<div class="product-card-meta">หมวดหมู่: ' + escapeHtml(productCategory(p) || category) + '</div>') +
+    '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div><div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
+    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div><div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
+  ).join('') : '<p class="muted">ไม่พบสินค้าในแบรนด์/หมวดหมู่ที่เลือก หรือข้อมูลสินค้าในฐานข้อมูลยังไม่มีแบรนด์และหมวดหมู่ที่ตรงกัน กรุณาตรวจสอบข้อมูลสินค้า</p>';
+  setStatus('catalogStatus','แสดง ' + filtered.length + ' รายการสินค้า');
 }
 
 function renderProductManagement() {
@@ -625,12 +964,12 @@ function renderProductManagement() {
   $('productManageRows').innerHTML = filtered.length
     ? filtered.map(p => `
         <tr>
-          <td>${escapeHtml(p.sku)}</td>
-          <td>${escapeHtml(p.product_name)}</td>
-          <td>${escapeHtml(p.barcode || '-')}</td>
-          <td>${escapeHtml(p.unit || 'ชิ้น')}</td>
-          <td>${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
-          <td>
+          <td data-label="SKU">${escapeHtml(p.sku)}</td>
+          <td data-label="ชื่อสินค้า">${escapeHtml(p.product_name)}</td>
+          <td data-label="Barcode">${escapeHtml(p.barcode || '-')}</td>
+          <td data-label="หน่วย">${escapeHtml(p.unit || 'ชิ้น')}</td>
+          <td data-label="สถานะ">${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
+          <td data-label="จัดการ">
             
 <button type="button" data-edit-product="${escapeHtml(p.id)}" style="width:auto;">แก้ไข</button>
 ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}" style="width:auto;background:#dc2626;margin-top:4px;">ลบ</button>` : ''}
@@ -657,6 +996,7 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
         $('manageUnit').value = product.unit || 'ชิ้น';
         $('manageImageUrl').value = product.image_url || '';
         $('manageIsActive').value = String(product.is_active);
+        updateManageImagePreview();
         $('productManageTitle').textContent = 'แก้ไขสินค้า';
         $('saveProductBtn').textContent = 'บันทึกการแก้ไข';
         $('productManageModal').classList.remove('hidden');
@@ -808,6 +1148,7 @@ function fillTransactionSelects() {
   
 let html5QrCode = null;
 let scannerRunning = false;
+let transactionScanResultHandled = false;
 
 function findProductByBarcode(code) {
   const normalized = String(code || "").trim().toLowerCase();
@@ -906,6 +1247,8 @@ $("barcodeScanInput").addEventListener("keydown", event => {
 
 $("startScanBtn").addEventListener("click", async () => {
   if (scannerRunning || html5QrCode) return;
+  transactionScanResultHandled = false;
+  prepareScanFeedback();
 
   if (!window.Html5Qrcode) {
     setStatus("scanStatus", "โหลดระบบสแกนไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ", true);
@@ -924,11 +1267,13 @@ $("startScanBtn").addEventListener("click", async () => {
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 250, height: 150 } },
       async decodedText => {
+        // Handle only the first decoded result per scan attempt. Invalid barcodes
+        // must stop the camera too, otherwise each video frame can trigger another beep.
+        if (transactionScanResultHandled) return;
+        transactionScanResultHandled = true;
         const found = selectProductByBarcode(decodedText);
-
-        if (found) {
-          await stopScanner();
-        }
+        playScanFeedback(found);
+        await stopScanner();
       },
       () => {}
     );
@@ -963,7 +1308,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
           balanceData.some(balance =>
             balance.product_id === productId &&
             balance.location_id === location.id &&
-            Number(balance.quantity || 0) > 0
+            availableQty(balance) > 0
           )
         )
       : sortedLocations;
@@ -978,7 +1323,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
           item.product_id === productId && item.location_id === location.id
         );
         const stockLabel = (type === 'OUT' || type === 'MOVE')
-          ? ` — คงเหลือ ${Number(balance?.quantity || 0).toLocaleString()} ${selectedProduct?.unit || 'ชิ้น'}`
+          ? ` — พร้อมขาย ${availableQty(balance).toLocaleString()} ${selectedProduct?.unit || 'ชิ้น'}`
           : '';
         return `${location.location_code} (ชั้น ${location.floor_no})${stockLabel}`;
       },
@@ -1017,14 +1362,15 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       const quantity = Number($('quantity').value || 0);
       const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
       const current = Number(row?.quantity || 0);
-      const valid = !!sourceId && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= current;
+      const available = availableQty(row);
+      const valid = !!sourceId && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= available;
       panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนย้ายตำแหน่ง</h3><div class="preview-layout">' +
         (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
         '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
         '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
-        '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (คงเหลือ ' + current.toLocaleString() + ')</div>' +
+        '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (สินค้าจริง ' + current.toLocaleString() + ', พร้อมขาย ' + available.toLocaleString() + ')</div>' +
         '<div>ปลายทาง: ' + escapeHtml(locationName(destinationId)) + '</div>' +
-        '<div><strong>' + (valid ? 'คงเหลือที่ต้นทางหลังย้าย: ' + (current - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนสินค้า') + '</strong></div></div></div>';
+        '<div><strong>' + (valid ? 'พร้อมขายที่ต้นทางหลังย้าย: ' + (available - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนที่พร้อมขาย') + '</strong></div></div></div>';
       panel.classList.remove('hidden');
       return;
     }
@@ -1032,19 +1378,21 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     const sourceId = $('sourceLocation').value;
     const row = balanceData.find(b => b.product_id === product.id && b.location_id === sourceId);
     const current = Number(row?.quantity || 0);
+    const available = availableQty(row);
     const rawQty = $('quantity').value;
     const qty = Number(rawQty);
-    const valid = !!sourceId && Number.isSafeInteger(qty) && qty > 0 && qty <= current;
-    const remaining = valid ? current - qty : null;
+    const valid = !!sourceId && Number.isSafeInteger(qty) && qty > 0 && qty <= available;
+    const remaining = valid ? available - qty : null;
     panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนเบิก</h3><div class="preview-layout">' +
       (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
       '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div>' +
       '<div>SKU: ' + escapeHtml(product.sku) + '</div>' +
       '<div>Location: ' + escapeHtml(locationName(sourceId)) + '</div>' +
-      '<div>คงเหลือปัจจุบัน: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+      '<div>สินค้าจริงทั้งหมด: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+      '<div>พร้อมขาย: ' + available.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
       '<div>จำนวนที่เบิก: ' + (rawQty ? escapeHtml(rawQty) : '—') + '</div>' +
-      '<div><strong>คงเหลือหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดคงเหลือ' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
-      (rawQty && Number.isSafeInteger(qty) && qty > current ? '<div class="error">จำนวนที่เบิกเกินยอดคงเหลือ</div>' : '') +
+      '<div><strong>พร้อมขายหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดพร้อมขาย' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
+      (rawQty && Number.isSafeInteger(qty) && qty > available ? '<div class="error">จำนวนที่เบิกเกินยอดพร้อมขาย</div>' : '') +
       '</div></div>';
     panel.classList.remove('hidden');
   }
@@ -1074,7 +1422,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
     const [pRes, lRes, bRes] = await Promise.all([
      
 db.from('products')
-  .select('id, sku, product_name, barcode, unit, image_url, is_active')
+  .select('*')
   .order('sku'),
 
       db.from('locations')
@@ -1082,7 +1430,7 @@ db.from('products')
         .eq('is_active', true)
         .order('location_code'),
       db.from('stock_balances')
-        .select('id, product_id, location_id, quantity')
+        .select('id, product_id, location_id, quantity, reserved_quantity, damaged_quantity')
     ]);
 
     if (version !== authVersion || !currentUserId) return;
@@ -1097,6 +1445,7 @@ db.from('products')
     locationsData = lRes.data || [];
     balanceData = bRes.data || [];
     renderStock();
+    populateCatalogBrands();
     renderProductCatalog();
     fillTransactionSelects();
     setStatus('status', 'โหลดข้อมูลสต๊อกแล้ว');
@@ -1104,37 +1453,78 @@ db.from('products')
 
   async function loadHistory(version) {
     setStatus('historyStatus', 'กำลังโหลดประวัติ...');
-    const { data, error } = await db.from('stock_transactions')
-      .select('id, transaction_type, product_id, quantity, from_location_id, to_location_id, notes, status, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const [stockResult, statusResult] = await Promise.all([
+      db.from('stock_transactions')
+        .select('id, transaction_type, product_id, quantity, from_location_id, to_location_id, notes, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      db.from('stock_status_transactions')
+        .select('id, product_id, location_id, quantity, from_status, to_status, notes, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50)
+    ]);
 
     if (version !== authVersion || !currentUserId) return;
 
-    if (error) {
-      setStatus('historyStatus', 'โหลดประวัติไม่สำเร็จ: ' + error.message, true);
+    if (stockResult.error) {
+      setStatus('historyStatus', 'โหลดประวัติไม่สำเร็จ: ' + stockResult.error.message, true);
       return;
     }
 
-    historyData = data || [];
+    const ordinary = stockResult.data || [];
+    const statusChanges = statusResult.error ? [] : (statusResult.data || []).map(item => ({
+      ...item,
+      transaction_type: 'STATUS',
+      from_location_id: item.location_id,
+      to_location_id: item.location_id,
+      status_change_label: (stockStatusLabels[item.from_status] || item.from_status) + ' → ' + (stockStatusLabels[item.to_status] || item.to_status)
+    }));
+    historyData = [...ordinary, ...statusChanges]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 50);
     renderHistory();
-    setStatus('historyStatus', `แสดง ${historyData.length} รายการล่าสุด`);
+    if (statusResult.error) {
+      setStatus('historyStatus', 'โหลดประวัติรับ/เบิก/ย้ายได้ แต่ประวัติเปลี่ยนสถานะโหลดไม่ได้: ' + statusResult.error.message, true);
+    } else {
+      setStatus('historyStatus', `แสดง ${historyData.length} รายการล่าสุด (รวมเปลี่ยนสถานะ)`);
+    }
   }
 
   function renderHistory() {
-    const typeLabels = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง' };
+    const typeLabels = { IN: 'รับเข้า', OUT: 'เบิกออก', MOVE: 'ย้ายตำแหน่ง', STATUS: 'เปลี่ยนสถานะสินค้า' };
+    const query = ($('historySearch')?.value || '').trim().toLowerCase();
+    const typeFilter = $('historyTypeFilter')?.value || '';
+    const dateFilter = $('historyDateFilter')?.value || '';
+    const filtered = historyData.filter(item => {
+      if (typeFilter && item.transaction_type !== typeFilter) return false;
+      if (dateFilter) {
+        const date = new Date(item.created_at);
+        const dateKey = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+        if (dateKey !== dateFilter) return false;
+      }
+      const searchable = [
+        productName(item.product_id), item.notes || '',
+        locationName(item.from_location_id), locationName(item.to_location_id),
+        typeLabels[item.transaction_type] || item.transaction_type,
+        item.status_change_label || ''
+      ].join(' ').toLowerCase();
+      return searchable.includes(query);
+    });
 
-    $('historyRows').innerHTML = historyData.length
-      ? historyData.map(item => `<tr>
-          <td>${escapeHtml(new Date(item.created_at).toLocaleString('th-TH'))}</td>
-          <td>${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}</td>
-          <td>${escapeHtml(productName(item.product_id))}</td>
-          <td>${escapeHtml(item.quantity)}</td>
-          <td>${escapeHtml(locationName(item.from_location_id))}</td>
-          <td>${escapeHtml(locationName(item.to_location_id))}</td>
-          <td>${escapeHtml(item.notes || '—')}</td>
+    $('historyRows').innerHTML = filtered.length
+      ? filtered.map(item => `<tr>
+          <td data-label="วันและเวลา">${escapeHtml(new Date(item.created_at).toLocaleString('th-TH'))}</td>
+          <td data-label="ประเภท">${escapeHtml(typeLabels[item.transaction_type] || item.transaction_type)}${item.status_change_label ? '<br><small>' + escapeHtml(item.status_change_label) + '</small>' : ''}</td>
+          <td data-label="SKU">${escapeHtml(productName(item.product_id))}</td>
+          <td data-label="จำนวน">${escapeHtml(item.quantity)}</td>
+          <td data-label="ต้นทาง">${escapeHtml(locationName(item.from_location_id))}</td>
+          <td data-label="ปลายทาง">${escapeHtml(locationName(item.to_location_id))}</td>
+          <td data-label="หมายเหตุ">${escapeHtml(item.notes || '—')}</td>
         </tr>`).join('')
-      : '<tr><td colspan="7">ยังไม่มีประวัติธุรกรรม</td></tr>';
+      : '<tr><td colspan="7">ไม่พบประวัติที่ตรงกับตัวกรอง</td></tr>';
+    if ($('historyStatus') && historyData.length) {
+      $('historyStatus').textContent = 'แสดง ' + filtered.length + ' จาก ' + historyData.length + ' รายการล่าสุดที่โหลดไว้';
+    }
   }
 
   async function refreshAll() {
@@ -1258,20 +1648,126 @@ $('logoutBtn').addEventListener('click', async () => {
   }
 });
 
+  // Audible feedback for camera barcode scans. Resume audio from the user's button gesture.
+  let scanFeedbackAudio = null;
+  function prepareScanFeedback() {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return;
+    try {
+      if (!scanFeedbackAudio) scanFeedbackAudio = new AudioCtor();
+      if (scanFeedbackAudio.state === 'suspended') scanFeedbackAudio.resume().catch(() => {});
+    } catch (error) {
+      console.warn('เสียงแจ้งผลสแกนไม่พร้อมใช้งาน:', error);
+    }
+  }
+  function playScanFeedback(success) {
+    // Vibrate where supported: short pulse for success, two pulses for failure.
+    // Vibration support depends on the phone, browser, and device settings.
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(success ? 55 : [85, 65, 85]);
+      }
+    } catch (error) {
+      console.warn('ระบบสั่นไม่พร้อมใช้งาน:', error);
+    }
+
+    // Sound is optional; vibration should still work if Web Audio is unavailable.
+    if (!scanFeedbackAudio) return;
+    if (scanFeedbackAudio.state === 'suspended') scanFeedbackAudio.resume().catch(() => {});
+    if (scanFeedbackAudio.state !== 'running') return;
+    const playTone = (frequency, startAt, duration) => {
+      try {
+        const oscillator = scanFeedbackAudio.createOscillator();
+        const gain = scanFeedbackAudio.createGain();
+        oscillator.type = 'square';
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, startAt);
+        // Raise oscillator volume substantially; cap below full scale to avoid harsh clipping.
+        gain.gain.exponentialRampToValueAtTime(0.72, startAt + 0.012);
+        gain.gain.setValueAtTime(0.72, startAt + Math.max(0.02, duration - 0.025));
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        oscillator.connect(gain);
+        gain.connect(scanFeedbackAudio.destination);
+        oscillator.start(startAt);
+        oscillator.stop(startAt + duration + 0.015);
+      } catch (error) {
+        console.warn('เล่นเสียงแจ้งผลสแกนไม่สำเร็จ:', error);
+      }
+    };
+    const now = scanFeedbackAudio.currentTime;
+    if (success) playTone(1250, now, 0.16);
+    else {
+      playTone(520, now, 0.14);
+      playTone(520, now + 0.22, 0.14);
+    }
+  }
+
   $('transactionType').addEventListener('change', updateTransactionFields);
 
+  let workflowReturnFocus = null;
+
   function hideWorkflowPanels() {
-    document.querySelectorAll('.workflow-panel').forEach(panel => panel.classList.add('hidden'));
+    document.querySelectorAll('.workflow-panel').forEach(panel => {
+      panel.classList.add('hidden');
+      panel.classList.remove('workflow-popup-active');
+      panel.removeAttribute('role');
+      panel.removeAttribute('aria-modal');
+      panel.removeAttribute('aria-label');
+    });
+    document.body.classList.remove('workflow-modal-active');
+  }
+
+  async function closeWorkflowPopup() {
+    // Stop any active camera session when its workflow popup is closed.
+    if (typeof stopStockScanner === 'function') await stopStockScanner();
+    if (typeof stopStatusScanner === 'function') await stopStatusScanner();
+    if (typeof stopScanner === 'function' && (scannerRunning || html5QrCode)) await stopScanner();
+    hideWorkflowPanels();
+    const modal = $('productManageModal');
+    if (modal) modal.classList.add('hidden');
+    // Return keyboard focus to the menu tile that opened this popup.
+    const returnTarget = workflowReturnFocus;
+    workflowReturnFocus = null;
+    if (returnTarget && returnTarget.isConnected && !returnTarget.disabled && !returnTarget.classList.contains('hidden')) {
+      returnTarget.focus();
+    }
   }
 
   function showWorkflowPanel(id) {
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== document.documentElement) {
+      workflowReturnFocus = active;
+    }
     hideWorkflowPanels();
     const panel = $(id);
-    if (panel) {
-      panel.classList.remove('hidden');
-      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    if (id !== 'transactionPanel') {
+      panel.classList.add('workflow-popup-active');
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      panel.setAttribute('aria-label', panel.querySelector('h2')?.textContent.trim() || 'เมนูงานคลังสินค้า');
+      document.body.classList.add('workflow-modal-active');
+      if (!panel.querySelector('.workflow-popup-close-row')) {
+        const row = document.createElement('div');
+        row.className = 'workflow-popup-close-row';
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'workflow-popup-close';
+        close.textContent = 'ปิด กลับเมนู';
+        close.setAttribute('aria-label', 'ปิดหน้าต่างและกลับเมนูงานคลังสินค้า');
+        close.addEventListener('click', closeWorkflowPopup);
+        row.appendChild(close);
+        panel.insertBefore(row, panel.firstChild);
+      }
     }
   }
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('workflow-modal-active')) {
+      closeWorkflowPopup();
+    }
+  });
 
 
   let withdrawalStep = 1;
@@ -1433,17 +1929,16 @@ $('logoutBtn').addEventListener('click', async () => {
 
       if (action === 'STOCK') {
         showWorkflowPanel('stockLookupPanel');
-        $('search').value = '';
-        renderStock();
+        resetStockLookupWizard();
         $('search').focus();
         return;
       }
 
       if (action === 'PRODUCTS') {
         showWorkflowPanel('productCatalogPanel');
-        $('catalogSearch').value = '';
-        renderProductCatalog();
-        $('catalogSearch').focus();
+        resetCatalogWizard();
+        // The catalog now starts with brand selection; the legacy catalogSearch field no longer exists.
+        $('catalogBrandSelect').focus();
         return;
       }
 
@@ -1457,8 +1952,24 @@ $('logoutBtn').addEventListener('click', async () => {
         return;
       }
 
+      if (action === 'STATUS') {
+        showWorkflowPanel('stockStatusPanel');
+        $('stockStatusForm').reset();
+        $('statusProductSearch').value = '';
+        $('statusQuantity').value = '';
+        $('statusNotes').value = '';
+        setStatus('stockStatusMessage', '');
+        renderStatusProductOptions();
+        renderStatusBalanceInfo();
+        setStatusWizardStep(1);
+        loadStockStatusHistory();
+        return;
+      }
+
       if (action === 'HISTORY') {
         showWorkflowPanel('historyPanel');
+        // Refresh on every open so staff see the newest stock and status changes.
+        loadHistory(authVersion);
         return;
       }
 
@@ -1512,7 +2023,8 @@ $('logoutBtn').addEventListener('click', async () => {
     });
   });
 
-  $('catalogSearch').addEventListener('input', renderProductCatalog);
+  // Optional legacy search field: the current catalog uses the brand/category wizard.
+  if ($('catalogSearch')) $('catalogSearch').addEventListener('input', renderProductCatalog);
   $('transactionProductSearch').addEventListener('input', () => {
     fillTransactionSelects();
     renderProductPickerResults();
@@ -1531,9 +2043,13 @@ $('logoutBtn').addEventListener('click', async () => {
   });
   $('sourceLocation').addEventListener('change', updateTransactionPreview);
   $('quantity').addEventListener('input', updateTransactionPreview);
-  $('search').addEventListener('input', renderStock);
+  $('search').addEventListener('input', () => { renderStock(); showScannedProductDetails($('search').value); });
   $('floor').addEventListener('change', renderStock);
   $('refreshBtn').addEventListener('click', refreshAll);
+  $('historySearch').addEventListener('input', renderHistory);
+  $('historyTypeFilter').addEventListener('change', renderHistory);
+  $('historyDateFilter').addEventListener('change', renderHistory);
+  $('historyRefreshBtn').addEventListener('click', () => loadHistory(authVersion));
 
   $('transactionForm').addEventListener('submit', async event => {
     event.preventDefault();
@@ -1577,7 +2093,7 @@ const destinationId =
       const sourceBalance = balanceData.find(
         balance => balance.product_id === productId && balance.location_id === sourceId
       );
-      const availableQuantity = Number(sourceBalance?.quantity || 0);
+      const availableQuantity = availableQty(sourceBalance);
 
       if (quantity > availableQuantity) {
         setStatus(
@@ -1642,70 +2158,80 @@ let stockHtml5QrCode = null;
 let stockScannerRunning = false;
 let stockScanHandling = false;
 
-function showScannedProductDetails(barcode) {
-  const normalized = String(barcode || "").trim().toLowerCase();
+let stockLookupStep = 1;
 
-  const matches = productsData.filter(
-    p => String(p.barcode || "").trim().toLowerCase() === normalized
-  );
+function setStockLookupStep(step) {
+  stockLookupStep = Math.max(1, Math.min(2, step));
+  document.querySelectorAll('[data-stock-lookup-step]').forEach(section => {
+    section.classList.toggle('hidden', Number(section.dataset.stockLookupStep) !== stockLookupStep);
+  });
+  $('stockLookupWizardTitle').textContent = stockLookupStep === 1 ? '1. ค้นหาสินค้า' : '2. ตรวจสอบยอดสต๊อก';
+  $('stockLookupStepLabel').textContent = `ขั้นที่ ${stockLookupStep} จาก 2`;
+  $('stockLookupProgress').querySelectorAll('span').forEach((bar, index) => {
+    bar.classList.toggle('active', index < stockLookupStep);
+  });
+  $('stockLookupBackBtn').disabled = stockLookupStep === 1;
+  $('stockLookupNextBtn').textContent = stockLookupStep === 1 ? 'ดูยอดสต๊อก →' : 'ค้นหาสินค้าอื่น';
+  $('stockLookupNextBtn').classList.toggle('secondary', stockLookupStep === 2);
+}
 
-  const panel = $("scannedProductDetails");
-  const info = $("scannedProductInfo");
+function resetStockLookupWizard() {
+  $('search').value = '';
+  $('floor').value = '';
+  $('scannedProductDetails').classList.add('hidden');
+  $('scannedProductInfo').innerHTML = '';
+  setStatus('stockScanStatus', '');
+  setStockLookupStep(1);
+  renderStock();
+}
 
-  if (matches.length !== 1) {
-    panel.classList.add("hidden");
-    info.innerHTML = "";
-    return;
+$('stockLookupBackBtn').addEventListener('click', () => {
+  setStockLookupStep(1);
+  $('search').focus();
+});
+
+$('stockLookupNextBtn').addEventListener('click', () => {
+  if (stockLookupStep === 1) {
+    const query = $('search').value.trim().toLowerCase();
+    if (!query) {
+      setStatus('status', 'กรุณากรอก SKU ชื่อสินค้า หรือ Barcode ก่อนตรวจสอบสต๊อก', true);
+      $('search').focus();
+      return;
+    }
+    const exactMatches = productsData.filter(p =>
+      [p.sku, p.barcode].some(value => String(value || '').trim().toLowerCase() === query)
+    );
+    const matches = exactMatches.length ? exactMatches : productsData.filter(p =>
+      [p.sku, p.product_name, p.barcode].some(value => String(value || '').toLowerCase().includes(query))
+    );
+    if (!matches.length) {
+      setStatus('status', 'ไม่พบสินค้า "' + $('search').value.trim() + '" กรุณาตรวจสอบคำค้นอีกครั้ง', true);
+      $('search').focus();
+      return;
+    }
+    // For an exact SKU/Barcode match, normalize to SKU so the results show only that product.
+    if (exactMatches.length === 1) $('search').value = exactMatches[0].sku;
+    renderStock();
+    setStatus('status', 'พบสินค้า ' + matches.length + ' รายการ — แสดงยอดแยกตาม Location');
+    setStockLookupStep(2);
+  } else {
+    resetStockLookupWizard();
+    $('search').focus();
   }
+});
 
+function showScannedProductDetails(query) {
+  const normalized = String(query || '').trim().toLowerCase();
+  const panel = $('stockProductPreview');
+  if (!normalized) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+  const exact = productsData.filter(p => [p.barcode,p.sku].some(v => String(v || '').trim().toLowerCase() === normalized));
+  const matches = exact.length ? exact : productsData.filter(p => [p.product_name,p.sku,p.barcode].some(v => String(v || '').toLowerCase().includes(normalized)));
+  if (matches.length !== 1) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
   const product = matches[0];
-
-  const balances = balanceData
-    .filter(b => b.product_id === product.id)
-    .map(balance => {
-      const location = locationsData.find(
-        l => l.id === balance.location_id
-      );
-
-      if (!location) return null;
-
-      return {
-        location: location.location_code,
-        floor: location.floor_no,
-        quantity: Number(balance.quantity || 0)
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.location.localeCompare(b.location));
-
-  const total = balances.reduce(
-    (sum, item) => sum + item.quantity, 0
-  );
-
-  info.innerHTML = `
-    <div style="display:grid;gap:8px;">
-      <div><strong>SKU:</strong> ${escapeHtml(product.sku)}</div>
-      <div><strong>ชื่อสินค้า:</strong> ${escapeHtml(product.product_name)}</div>
-      <div><strong>Barcode:</strong> ${escapeHtml(product.barcode || "-")}</div>
-      <div style="font-size:1.1rem;">
-        <strong>ยอดคงเหลือรวม:</strong> ${total.toLocaleString()} ชิ้น
-      </div>
-      <div style="margin-top:8px;"><strong>ตำแหน่งจัดเก็บ</strong></div>
-      ${
-        balances.length
-          ? balances.map(item => `
-              <div style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                <strong>${escapeHtml(item.location)}</strong>
-                <span> · ชั้น ${escapeHtml(item.floor)}</span>
-                <div>คงเหลือ ${item.quantity.toLocaleString()} ชิ้น</div>
-              </div>
-            `).join("")
-          : "<div>ไม่พบตำแหน่งจัดเก็บของสินค้านี้</div>"
-      }
-    </div>
-  `;
-
-  panel.classList.remove("hidden");
+  const total = balanceData.filter(b => b.product_id === product.id).reduce((sum,b) => sum + Number(b.quantity || 0),0);
+  panel.innerHTML = (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+    '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span><span class="product-picker-sku">ยอดคงเหลือรวม: ' + total.toLocaleString() + ' ชิ้น</span></span>';
+  panel.classList.remove('hidden');
 }
 
 async function stopStockScanner() {
@@ -1740,6 +2266,7 @@ $("stockScanBtn").addEventListener("click", async () => {
     return;
   }
 
+  prepareScanFeedback();
   if (!window.Html5Qrcode) {
     setStatus("stockScanStatus", "โหลดระบบสแกนไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ", true);
     return;
@@ -1762,13 +2289,25 @@ $("stockScanBtn").addEventListener("click", async () => {
         $("search").value = decodedText;
         $("search").dispatchEvent(new Event("input", { bubbles: true }));
         showScannedProductDetails(decodedText);
+        const normalized = String(decodedText || '').trim().toLowerCase();
+        const scanMatches = productsData.filter(p =>
+          [p.barcode, p.sku].some(value => String(value || '').trim().toLowerCase() === normalized)
+        );
+        const recognized = scanMatches.length === 1;
+        playScanFeedback(recognized);
         
         await stopStockScanner();
 
         setStatus(
           "stockScanStatus",
-          `สแกนได้แล้ว: ${decodedText} — ตรวจสอบผลในตารางสต็อก`
+          recognized
+            ? `สแกนสำเร็จ: ${decodedText} — กด “ดูยอดสต๊อก” เพื่อแสดงรายละเอียด`
+            : `ไม่พบสินค้า Barcode/SKU: ${decodedText} — ลองสแกนอีกครั้งหรือกรอก SKU เอง`,
+          !recognized
         );
+        setStatus('status', '');
+        renderStock();
+        // Keep the wizard on step 1 so the employee can confirm by pressing “ดูยอดสต๊อก”.
       },
       () => {}
     );
@@ -1783,6 +2322,42 @@ $("stockScanBtn").addEventListener("click", async () => {
 });
 
 $('productManageSearch').addEventListener('input', renderProductManagement);
+
+function updateManageImagePreview() {
+  const url = $('manageImageUrl').value.trim();
+  const preview = $('manageImagePreview');
+  const status = $('manageImagePreviewStatus');
+  preview.replaceChildren();
+  preview.classList.add('hidden');
+  if (!url) {
+    status.textContent = 'ใส่ URL รูปสินค้าเพื่อดูตัวอย่างก่อนบันทึก (ไม่บังคับ)';
+    return;
+  }
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid image URL protocol');
+  } catch (_) {
+    status.textContent = 'กรุณาตรวจสอบ URL รูปภาพ ต้องขึ้นต้นด้วย https:// หรือ http://';
+    return;
+  }
+  const image = document.createElement('img');
+  image.alt = 'ตัวอย่างรูปสินค้า';
+  image.loading = 'eager';
+  image.decoding = 'async';
+  image.style.cssText = 'display:block;max-width:180px;max-height:150px;min-width:80px;min-height:40px;object-fit:contain;border-radius:8px;';
+  preview.appendChild(image);
+  preview.classList.remove('hidden');
+  status.textContent = 'กำลังโหลดตัวอย่างรูป...';
+  image.addEventListener('load', () => {
+    status.textContent = 'ตัวอย่างรูปสินค้า';
+  }, { once: true });
+  image.addEventListener('error', () => {
+    preview.classList.add('hidden');
+    status.textContent = 'แสดงรูปไม่ได้: ต้องใช้ลิงก์ไฟล์รูปโดยตรง (เช่น .jpg, .png, .webp) และเปิดดูได้โดยไม่ต้องล็อกอิน';
+  }, { once: true });
+  image.src = url;
+}
+$('manageImageUrl').addEventListener('input', updateManageImagePreview);
 
 $('productManageForm').addEventListener('submit', async event => {
   event.preventDefault();
@@ -1842,6 +2417,7 @@ $('addProductBtn').addEventListener('click', () => {
   $('manageProductId').value = '';
   $('manageUnit').value = 'ชิ้น';
   $('manageIsActive').value = 'true';
+  updateManageImagePreview();
   $('productManageTitle').textContent = 'เพิ่มสินค้าใหม่';
   $('saveProductBtn').textContent = 'บันทึกสินค้า';
   setStatus('productManageStatus', '');
@@ -1859,6 +2435,309 @@ $('cancelProductBtn').addEventListener('click', () => {
   $('manageProductId').value = '';
   setStatus('productManageStatus', '');
 });
+
+
+const stockStatusLabels = { available: 'พร้อมขาย', reserved: 'จองแล้ว', damaged: 'เสียหาย' };
+
+function availableQty(balance) {
+  return Math.max(0, Number(balance?.quantity || 0) - Number(balance?.reserved_quantity || 0) - Number(balance?.damaged_quantity || 0));
+}
+function statusQty(balance, status) {
+  if (!balance) return 0;
+  if (status === 'reserved') return Number(balance.reserved_quantity || 0);
+  if (status === 'damaged') return Number(balance.damaged_quantity || 0);
+  return availableQty(balance);
+}
+function renderStatusProductOptions() {
+  const search = $('statusProductSearch').value.trim().toLowerCase();
+  const previous = $('statusProduct').value;
+  const list = productsData.filter(p => p.is_active && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(search));
+  $('statusProduct').innerHTML = '<option value="">เลือกสินค้า</option>' + list.map(p =>
+    '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.sku + ' — ' + p.product_name) + '</option>'
+  ).join('');
+  if (list.some(p => p.id === previous)) $('statusProduct').value = previous;
+  renderStatusProductPickerResults();
+  renderStatusSelectedProductPreview();
+  renderStatusLocationOptions();
+}
+function renderStatusProductPickerResults() {
+  const input = $('statusProductSearch');
+  const results = $('statusProductPickerResults');
+  if (!results) return;
+  const term = input.value.trim().toLowerCase();
+  const active = productsData.filter(p => p.is_active && [p.sku, p.product_name, p.barcode].join(' ').toLowerCase().includes(term));
+  const shown = term ? active : active.slice(0, 20);
+  results.innerHTML = shown.length ? shown.map(p =>
+    '<button type="button" class="product-picker-option" role="option" aria-selected="' + (p.id === $('statusProduct').value) + '" data-status-picker-product="' + escapeHtml(p.id) + '">' +
+      (p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+      '<span class="product-picker-details"><span class="product-picker-sku">' + escapeHtml(p.sku) + '</span><span class="product-picker-name">' + escapeHtml(p.product_name) + '</span><span class="product-picker-sku">Barcode: ' + escapeHtml(p.barcode || '—') + '</span></span></button>'
+  ).join('') : '<div class="muted" style="padding:12px;">ไม่พบสินค้า</div>';
+  results.classList.remove('hidden');
+  results.querySelectorAll('[data-status-picker-product]').forEach(button => button.addEventListener('click', () => {
+    const product = productsData.find(p => p.id === button.getAttribute('data-status-picker-product') && p.is_active);
+    if (!product) return;
+    $('statusProductSearch').value = product.sku;
+    $('statusBarcodeInput').value = product.sku;
+    $('statusProduct').value = product.id;
+    results.classList.add('hidden');
+    renderStatusSelectedProductPreview();
+    renderStatusLocationOptions();
+    setStatus('statusScanMessage', 'เลือกสินค้าแล้ว: ' + product.sku + ' — ' + product.product_name);
+  }));
+}
+function renderStatusSelectedProductPreview() {
+  const panel = $('statusSelectedProductPreview');
+  if (!panel) return;
+  const product = productsData.find(p => p.id === $('statusProduct').value && p.is_active);
+  if (!product) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+  panel.innerHTML = (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" aria-hidden="true"></span>') +
+    '<span class="product-picker-details"><span class="product-picker-sku">เลือกสินค้าแล้ว · ' + escapeHtml(product.sku) + '</span><span class="product-picker-name">' + escapeHtml(product.product_name) + '</span></span>';
+  panel.classList.remove('hidden');
+}
+function selectStatusProductByCode(code) {
+  const normalized = String(code || '').trim();
+  if (!normalized) { setStatus('statusScanMessage', 'กรุณาสแกน Barcode หรือกรอก SKU สินค้า', true); return false; }
+  const key = normalized.toLowerCase();
+  const exact = productsData.filter(p => String(p.barcode || '').trim().toLowerCase() === key || String(p.sku || '').trim().toLowerCase() === key);
+  const matches = exact.filter(p => p.is_active);
+  if (matches.length !== 1) {
+    setStatus('statusScanMessage', matches.length > 1 ? 'พบ SKU/Barcode ซ้ำ กรุณาตรวจสอบข้อมูลสินค้า' : 'ไม่พบสินค้า SKU/Barcode: ' + normalized, true);
+    $('statusProductSearch').value = normalized;
+    renderStatusProductOptions();
+    return false;
+  }
+  const product = matches[0];
+  $('statusBarcodeInput').value = product.sku;
+  $('statusProductSearch').value = product.sku;
+  $('statusProduct').value = product.id;
+  renderStatusProductPickerResults();
+  renderStatusSelectedProductPreview();
+  renderStatusLocationOptions();
+  setStatus('statusScanMessage', 'พบสินค้า ' + product.sku + ' — ' + product.product_name);
+  return true;
+}
+function renderStatusLocationOptions() {
+  const productId = $('statusProduct').value;
+  const previous = $('statusLocation').value;
+  const locationsWithStock = locationsData.filter(l => balanceData.some(b => b.product_id === productId && b.location_id === l.id && Number(b.quantity || 0) > 0));
+  const sorted = [...locationsWithStock].sort((a,b) => a.location_code.localeCompare(b.location_code));
+  $('statusLocation').innerHTML = '<option value="">เลือก Location ที่มีสินค้า</option>' + sorted.map(l =>
+    '<option value="' + escapeHtml(l.id) + '">' + escapeHtml(l.location_code + ' (ชั้น ' + l.floor_no + ')') + '</option>'
+  ).join('');
+  if (sorted.some(l => l.id === previous)) $('statusLocation').value = previous;
+  renderStatusBalanceInfo();
+}
+function renderStatusBalanceInfo() {
+  const productId = $('statusProduct')?.value;
+  const locationId = $('statusLocation')?.value;
+  const balance = balanceData.find(b => b.product_id === productId && b.location_id === locationId);
+  const total = Number(balance?.quantity || 0);
+  const reserved = Number(balance?.reserved_quantity || 0);
+  const damaged = Number(balance?.damaged_quantity || 0);
+  const available = availableQty(balance);
+  $('statusBalanceInfo').innerHTML = '<strong>ยอดสถานะใน Location นี้</strong><div>สินค้าจริงทั้งหมด: ' + total.toLocaleString() + '</div><div>พร้อมขาย: ' + available.toLocaleString() + '</div><div>จองแล้ว: ' + reserved.toLocaleString() + '</div><div>เสียหาย: ' + damaged.toLocaleString() + '</div>';
+  const from = $('statusFrom').value;
+  $('statusQuantity').max = String(statusQty(balance, from) || 0);
+}
+async function loadStockStatusHistory() {
+  const { data, error } = await db.from('stock_status_transactions')
+    .select('id, product_id, location_id, quantity, from_status, to_status, notes, created_at')
+    .order('created_at', { ascending: false }).limit(50);
+  if (error) {
+    $('stockStatusHistoryRows').innerHTML = '<tr><td colspan="7">โหลดประวัติไม่สำเร็จ: ' + escapeHtml(error.message) + '</td></tr>';
+    return;
+  }
+  $('stockStatusHistoryRows').innerHTML = data?.length ? data.map(tx => {
+    const product = productsData.find(p => p.id === tx.product_id);
+    return '<tr><td>' + escapeHtml(new Date(tx.created_at).toLocaleString('th-TH')) + '</td><td>' + escapeHtml(product?.sku || 'ไม่พบสินค้า') + '</td><td>' + escapeHtml(locationName(tx.location_id)) + '</td><td>' + escapeHtml(tx.quantity) + '</td><td>' + escapeHtml(stockStatusLabels[tx.from_status] || tx.from_status) + '</td><td>' + escapeHtml(stockStatusLabels[tx.to_status] || tx.to_status) + '</td><td>' + escapeHtml(tx.notes || '—') + '</td></tr>';
+  }).join('') : '<tr><td colspan="7">ยังไม่มีประวัติเปลี่ยนสถานะ</td></tr>';
+}
+$('statusProductSearch').addEventListener('input', renderStatusProductOptions);
+$('statusProductSearch').addEventListener('focus', renderStatusProductPickerResults);
+$('statusProduct').addEventListener('change', () => {
+  renderStatusSelectedProductPreview();
+  renderStatusLocationOptions();
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('#statusProductSearch') && !event.target.closest('#statusProductPickerResults')) {
+    $('statusProductPickerResults')?.classList.add('hidden');
+  }
+});
+$('statusBarcodeInput').addEventListener('input', () => {
+  // Keep the product picker in sync while a barcode scanner or keyboard types.
+  $('statusProductSearch').value = $('statusBarcodeInput').value;
+  renderStatusProductOptions();
+});
+$('statusBarcodeInput').addEventListener('keydown', event => {
+  if (event.key === 'Enter') { event.preventDefault(); selectStatusProductByCode($('statusBarcodeInput').value); }
+});
+let statusHtml5QrCode = null;
+let statusScannerRunning = false;
+let statusScanResultHandled = false;
+async function stopStatusScanner() {
+  if (statusHtml5QrCode) {
+    try { if (statusScannerRunning) await statusHtml5QrCode.stop(); } catch (error) { console.warn('หยุดกล้องจัดการสถานะ:', error); }
+    try { await statusHtml5QrCode.clear(); } catch (error) { console.warn('ปิดหน้าสแกนจัดการสถานะ:', error); }
+  }
+  statusHtml5QrCode = null;
+  statusScannerRunning = false;
+  $('statusScanReader').classList.add('hidden');
+  $('statusStopScanBtn').classList.add('hidden');
+  $('statusStartScanBtn').classList.remove('hidden');
+}
+$('statusStartScanBtn').addEventListener('click', async () => {
+  if (statusScannerRunning || statusHtml5QrCode) return;
+  statusScanResultHandled = false;
+  prepareScanFeedback();
+  if (!window.Html5Qrcode) { setStatus('statusScanMessage', 'โหลดระบบสแกนไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ', true); return; }
+  $('statusScanReader').classList.remove('hidden');
+  $('statusStartScanBtn').classList.add('hidden');
+  $('statusStopScanBtn').classList.remove('hidden');
+  setStatus('statusScanMessage', 'กำลังเปิดกล้อง กรุณาอนุญาตให้เว็บไซต์ใช้กล้อง');
+  statusHtml5QrCode = new Html5Qrcode('statusScanReader');
+  try {
+    await statusHtml5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 150 } }, async decodedText => {
+      // Process one decoded result only; stop after success or failure to prevent repeated beeps.
+      if (statusScanResultHandled) return;
+      statusScanResultHandled = true;
+      const found = selectStatusProductByCode(decodedText);
+      playScanFeedback(found);
+      await stopStatusScanner();
+    }, () => {});
+    statusScannerRunning = true;
+    setStatus('statusScanMessage', 'เปิดกล้องแล้ว กรุณาหันกล้องไปที่ Barcode สินค้า');
+  } catch (error) {
+    console.error('เปิดกล้องจัดการสถานะไม่สำเร็จ:', error);
+    setStatus('statusScanMessage', 'เปิดกล้องไม่สำเร็จ กรุณาอนุญาตใช้กล้องและลองใหม่', true);
+    await stopStatusScanner();
+  }
+});
+$('statusStopScanBtn').addEventListener('click', stopStatusScanner);
+$('statusLocation').addEventListener('change', renderStatusBalanceInfo);
+$('statusFrom').addEventListener('change', renderStatusBalanceInfo);
+$('statusTo').addEventListener('change', () => {
+  if ($('statusTo').value === $('statusFrom').value) {
+    $('statusTo').value = ['available','reserved','damaged'].find(v => v !== $('statusFrom').value) || 'available';
+  }
+});
+$('refreshStatusBtn').addEventListener('click', async () => {
+  await refreshAll();
+  renderStatusProductOptions();
+  await loadStockStatusHistory();
+});
+
+  let statusWizardStep = 1;
+  const statusWizardStepNames = ['เลือกสินค้า', 'เลือก Location และสถานะปัจจุบัน', 'ระบุสถานะใหม่และจำนวน', 'ตรวจสอบรายการ'];
+  ['statusProduct','statusLocation','statusFrom','statusTo','statusQuantity'].forEach(id => { $(id).required = false; });
+  function statusWizardReviewHtml() {
+    const product = productsData.find(p => p.id === $('statusProduct').value);
+    const balance = balanceData.find(b => b.product_id === $('statusProduct').value && b.location_id === $('statusLocation').value);
+    return '<h3>ตรวจสอบรายการก่อนยืนยัน</h3>' +
+      (product ? '<div class="preview-layout" style="margin:12px 0;align-items:center;">' +
+        (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="" style="width:112px;height:112px;min-width:112px;max-width:112px;object-fit:contain;flex:0 0 112px;border-radius:8px;" onerror="this.style.display=\'none\'">' : '<span class="product-picker-thumb" style="width:112px;height:112px;min-width:112px;flex:0 0 112px;" aria-hidden="true"></span>') +
+        '<div style="min-width:0;"><p><strong>SKU:</strong> ' + escapeHtml(product.sku) + '</p><p><strong>ชื่อสินค้า:</strong> ' + escapeHtml(product.product_name) + '</p></div></div>' : '<p>ยังไม่ได้เลือกสินค้า</p>') +
+      '<p><strong>Location:</strong> ' + escapeHtml(locationName($('statusLocation').value)) + '</p>' +
+      '<p><strong>จำนวน:</strong> ' + escapeHtml($('statusQuantity').value) + '</p>' +
+      '<p><strong>เปลี่ยนสถานะ:</strong> ' + escapeHtml(stockStatusLabels[$('statusFrom').value]) + ' → ' + escapeHtml(stockStatusLabels[$('statusTo').value]) + '</p>' +
+      '<p><strong>หมายเหตุ:</strong> ' + escapeHtml($('statusNotes').value.trim() || '—') + '</p>' +
+      '<hr><p><strong>ยอดก่อนเปลี่ยน</strong></p>' +
+      '<p>สินค้าจริง: ' + Number(balance?.quantity || 0).toLocaleString() + ' | พร้อมขาย: ' + availableQty(balance).toLocaleString() +
+      ' | จองแล้ว: ' + Number(balance?.reserved_quantity || 0).toLocaleString() + ' | เสียหาย: ' + Number(balance?.damaged_quantity || 0).toLocaleString() + '</p>' +
+      '<p class="muted">การเปลี่ยนสถานะไม่เปลี่ยนยอดสินค้าจริงรวม</p>';
+  }
+  function setStatusWizardStep(step) {
+    statusWizardStep = Math.max(1, Math.min(4, step));
+    $('statusWizardTitle').textContent = statusWizardStep + '. ' + statusWizardStepNames[statusWizardStep - 1];
+    $('statusWizardStepLabel').textContent = 'ขั้นที่ ' + statusWizardStep + ' จาก 4';
+    $('statusWizardProgress').querySelectorAll('span').forEach((bar, index) => bar.classList.toggle('active', index < statusWizardStep));
+    document.querySelectorAll('#stockStatusForm .status-wizard-field').forEach(field => field.classList.toggle('hidden', Number(field.dataset.statusStep) !== statusWizardStep));
+    $('statusWizardReview').classList.toggle('hidden', statusWizardStep !== 4);
+    if (statusWizardStep === 4) $('statusWizardReview').innerHTML = statusWizardReviewHtml();
+    $('statusWizardBackBtn').disabled = statusWizardStep === 1;
+    $('statusWizardNextBtn').classList.toggle('hidden', statusWizardStep === 4);
+    $('submitStatusChange').classList.toggle('hidden', statusWizardStep !== 4);
+    setStatus('stockStatusMessage', '');
+  }
+  function validateStatusWizardStep() {
+    if (statusWizardStep === 1 && !$('statusProduct').value) {
+      setStatus('stockStatusMessage', 'กรุณาค้นหาและเลือกสินค้าก่อน', true); return false;
+    }
+    if (statusWizardStep === 2) {
+      if (!$('statusLocation').value) { setStatus('stockStatusMessage', 'กรุณาเลือก Location ที่มีสินค้า', true); return false; }
+      const b = balanceData.find(item => item.product_id === $('statusProduct').value && item.location_id === $('statusLocation').value);
+      if (statusQty(b, $('statusFrom').value) < 1) { setStatus('stockStatusMessage', 'สถานะปัจจุบันที่เลือกไม่มีสินค้า กรุณาเลือกสถานะหรือ Location อื่น', true); return false; }
+    }
+    if (statusWizardStep === 3) {
+      const q = Number($('statusQuantity').value);
+      const b = balanceData.find(item => item.product_id === $('statusProduct').value && item.location_id === $('statusLocation').value);
+      if ($('statusFrom').value === $('statusTo').value) { setStatus('stockStatusMessage', 'สถานะต้นทางและปลายทางต้องแตกต่างกัน', true); return false; }
+      if (!Number.isSafeInteger(q) || q <= 0) { setStatus('stockStatusMessage', 'กรุณาระบุจำนวนเต็มมากกว่า 0', true); return false; }
+      if (q > statusQty(b, $('statusFrom').value)) { setStatus('stockStatusMessage', 'จำนวนเกินยอดสถานะ ' + stockStatusLabels[$('statusFrom').value] + ' ที่มีอยู่', true); return false; }
+    }
+    return true;
+  }
+  $('statusWizardNextBtn').addEventListener('click', () => { if (validateStatusWizardStep()) setStatusWizardStep(statusWizardStep + 1); });
+  $('statusWizardBackBtn').addEventListener('click', () => setStatusWizardStep(statusWizardStep - 1));
+  $('statusWizardCancelBtn').addEventListener('click', closeWorkflowPopup);
+  $('statusQuantity').addEventListener('input', () => { if (statusWizardStep === 4) $('statusWizardReview').innerHTML = statusWizardReviewHtml(); });
+  $('statusNotes').addEventListener('input', () => { if (statusWizardStep === 4) $('statusWizardReview').innerHTML = statusWizardReviewHtml(); });
+  setStatusWizardStep(1);
+$('stockStatusForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy || !currentUserId) return;
+  const productId = $('statusProduct').value;
+  const locationId = $('statusLocation').value;
+  const quantity = Number($('statusQuantity').value);
+  const fromStatus = $('statusFrom').value;
+  const toStatus = $('statusTo').value;
+  const notes = $('statusNotes').value.trim() || null;
+  const balance = balanceData.find(b => b.product_id === productId && b.location_id === locationId);
+  if (!productId || !locationId || !Number.isSafeInteger(quantity) || quantity <= 0) {
+    setStatus('stockStatusMessage', 'กรุณาเลือกสินค้า, Location และจำนวนเต็มมากกว่า 0', true);
+    return;
+  }
+  if (fromStatus === toStatus) {
+    setStatus('stockStatusMessage', 'สถานะต้นทางและปลายทางต้องแตกต่างกัน', true);
+    return;
+  }
+  if (quantity > statusQty(balance, fromStatus)) {
+    setStatus('stockStatusMessage', 'จำนวนที่ระบุเกินยอดสถานะ ' + stockStatusLabels[fromStatus] + ' ที่มีอยู่', true);
+    return;
+  }
+  const product = productsData.find(p => p.id === productId);
+  if (statusWizardStep !== 4 || !validateStatusWizardStep()) return;
+  const button = $('submitStatusChange');
+  button.disabled = true;
+  setStatus('stockStatusMessage', 'กำลังบันทึกการเปลี่ยนสถานะ...');
+  try {
+    const { error } = await db.rpc('process_stock_status_change', {
+      p_idempotency_key: (crypto.randomUUID ? crypto.randomUUID() : 'status-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+      p_product_id: productId,
+      p_location_id: locationId,
+      p_quantity: quantity,
+      p_from_status: fromStatus,
+      p_to_status: toStatus,
+      p_notes: notes
+    });
+    if (error) throw error;
+    $('statusQuantity').value = '';
+    $('statusNotes').value = '';
+    $('statusProductSearch').value = '';
+    $('statusBarcodeInput').value = '';
+    $('statusProduct').value = '';
+    $('statusLocation').value = '';
+    await refreshAll();
+    renderStatusProductOptions();
+    setStatusWizardStep(1);
+    await loadStockStatusHistory();
+    setStatus('stockStatusMessage', 'เปลี่ยนสถานะสินค้าเรียบร้อยแล้ว');
+  } catch (error) {
+    setStatus('stockStatusMessage', 'เปลี่ยนสถานะไม่สำเร็จ: ' + (error.message || 'เกิดข้อผิดพลาด'), true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 
   db.auth.onAuthStateChange((_event, session) => {
     setTimeout(() => applySession(session), 0);
