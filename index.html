@@ -520,7 +520,7 @@
           <table>
             <thead>
               <tr>
-                <th>SKU</th><th>ชื่อสินค้า</th><th>Location</th><th>ชั้น</th>
+                <th>SKU</th><th>ชื่อสินค้า</th><th>แบรนด์</th><th>หมวดหมู่</th><th>Location</th><th>ชั้น</th>
                 <th>สินค้าจริงใน Location</th><th>พร้อมขาย</th><th>จองแล้ว</th><th>เสียหาย</th><th>ยอดรวมทุก Location</th>
               </tr>
             </thead>
@@ -739,6 +739,8 @@
           return `<tr>
             <td>${escapeHtml(r.sku)}</td>
             <td>${escapeHtml(r.name)}</td>
+            <td>${escapeHtml(productBrand(product) || '—')}</td>
+            <td>${escapeHtml(productCategory(product) || '—')}</td>
             <td>${escapeHtml(r.location)}</td>
             <td>${escapeHtml(r.floor)}</td>
             <td>${escapeHtml(r.quantity)}</td>
@@ -748,7 +750,7 @@
             <td><strong>${escapeHtml(total.toLocaleString())}</strong></td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="9">ไม่พบข้อมูลสต๊อก</td></tr>';
+      : '<tr><td colspan="11">ไม่พบข้อมูลสต๊อก</td></tr>';
 
     $('skuCount').textContent = productsData.length.toLocaleString();
     $('stockCount').textContent = balanceData.reduce(
