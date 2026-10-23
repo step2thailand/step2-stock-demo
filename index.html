@@ -442,7 +442,7 @@
 
       <div>
         <label for="manageUnit">หน่วย</label>
-        <input id="manageUnit" value="ชิ้น" required>
+        <input id="manageUnit" value="ชุด" required>
       </div>
 
       <div>
@@ -943,7 +943,7 @@ function renderProductCatalog() {
     '<div class="product-card-meta">แบรนด์: ' + escapeHtml(productBrand(p) || brand) + '</div>' +
     (brand === 'FunTime' ? '' : '<div class="product-card-meta">หมวดหมู่: ' + escapeHtml(productCategory(p) || category) + '</div>') +
     '<div class="product-card-meta">SKU: ' + escapeHtml(p.sku) + '</div><div class="product-card-name">' + escapeHtml(p.product_name) + '</div>' +
-    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div><div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชิ้น') + '</div></article>'
+    '<div class="product-card-meta">Barcode: ' + escapeHtml(p.barcode || '—') + '</div><div class="product-card-meta">หน่วย: ' + escapeHtml(p.unit || 'ชุด') + '</div></article>'
   ).join('') : '<p class="muted">ไม่พบสินค้าในแบรนด์/หมวดหมู่ที่เลือก หรือข้อมูลสินค้าในฐานข้อมูลยังไม่มีแบรนด์และหมวดหมู่ที่ตรงกัน กรุณาตรวจสอบข้อมูลสินค้า</p>';
   setStatus('catalogStatus','แสดง ' + filtered.length + ' รายการสินค้า');
 }
@@ -967,7 +967,7 @@ function renderProductManagement() {
           <td data-label="SKU">${escapeHtml(p.sku)}</td>
           <td data-label="ชื่อสินค้า">${escapeHtml(p.product_name)}</td>
           <td data-label="Barcode">${escapeHtml(p.barcode || '-')}</td>
-          <td data-label="หน่วย">${escapeHtml(p.unit || 'ชิ้น')}</td>
+          <td data-label="หน่วย">${escapeHtml(p.unit || 'ชุด')}</td>
           <td data-label="สถานะ">${p.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
           <td data-label="จัดการ">
             
@@ -1002,7 +1002,7 @@ ${!p.is_active ? `<button type="button" data-delete-product="${escapeHtml(p.id)}
         }
         populateManageCategories(productCategory(product));
         $('manageBarcode').value = product.barcode || '';
-        $('manageUnit').value = product.unit || 'ชิ้น';
+        $('manageUnit').value = product.unit || 'ชุด';
         $('manageImageUrl').value = product.image_url || '';
         $('manageIsActive').value = String(product.is_active);
         updateManageImagePreview();
@@ -1332,7 +1332,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
           item.product_id === productId && item.location_id === location.id
         );
         const stockLabel = (type === 'OUT' || type === 'MOVE')
-          ? ` — พร้อมขาย ${availableQty(balance).toLocaleString()} ${selectedProduct?.unit || 'ชิ้น'}`
+          ? ` — พร้อมขาย ${availableQty(balance).toLocaleString()} ${selectedProduct?.unit || 'ชุด'}`
           : '';
         return `${location.location_code} (ชั้น ${location.floor_no})${stockLabel}`;
       },
@@ -1360,7 +1360,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนรับสินค้าเข้า</h3><div class="preview-layout">' +
         (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
         '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
-        '<div>จำนวนรับเข้า: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>จำนวนรับเข้า: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
         '<div>Location ปลายทาง: ' + escapeHtml(locationName($('destinationLocation').value)) + '</div></div></div>';
       panel.classList.remove('hidden');
       return;
@@ -1376,7 +1376,7 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       panel.innerHTML = '<h3 style="margin-top:0;">ตรวจสอบก่อนย้ายตำแหน่ง</h3><div class="preview-layout">' +
         (product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.product_name) + '" onerror="this.style.display=\'none\'">' : '') +
         '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div><div>SKU: ' + escapeHtml(product.sku) + '</div>' +
-        '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+        '<div>จำนวนย้าย: ' + escapeHtml($('quantity').value || '—') + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
         '<div>ต้นทาง: ' + escapeHtml(locationName(sourceId)) + ' (สินค้าจริง ' + current.toLocaleString() + ', พร้อมขาย ' + available.toLocaleString() + ')</div>' +
         '<div>ปลายทาง: ' + escapeHtml(locationName(destinationId)) + '</div>' +
         '<div><strong>' + (valid ? 'พร้อมขายที่ต้นทางหลังย้าย: ' + (available - quantity).toLocaleString() : 'กรุณาตรวจสอบ Location และจำนวนที่พร้อมขาย') + '</strong></div></div></div>';
@@ -1397,10 +1397,10 @@ $("stopScanBtn").addEventListener("click", stopScanner);
       '<div><div><strong>' + escapeHtml(product.product_name) + '</strong></div>' +
       '<div>SKU: ' + escapeHtml(product.sku) + '</div>' +
       '<div>Location: ' + escapeHtml(locationName(sourceId)) + '</div>' +
-      '<div>สินค้าจริงทั้งหมด: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
-      '<div>พร้อมขาย: ' + available.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น') + '</div>' +
+      '<div>สินค้าจริงทั้งหมด: ' + current.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
+      '<div>พร้อมขาย: ' + available.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชุด') + '</div>' +
       '<div>จำนวนที่เบิก: ' + (rawQty ? escapeHtml(rawQty) : '—') + '</div>' +
-      '<div><strong>พร้อมขายหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดพร้อมขาย' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชิ้น')) + '</strong></div>' +
+      '<div><strong>พร้อมขายหลังเบิก: ' + (remaining === null ? 'กรุณาเลือก Location และระบุจำนวนไม่เกินยอดพร้อมขาย' : remaining.toLocaleString() + ' ' + escapeHtml(product.unit || 'ชุด')) + '</strong></div>' +
       (rawQty && Number.isSafeInteger(qty) && qty > available ? '<div class="error">จำนวนที่เบิกเกินยอดพร้อมขาย</div>' : '') +
       '</div></div>';
     panel.classList.remove('hidden');
@@ -2390,7 +2390,7 @@ $('productManageForm').addEventListener('submit', async event => {
       p_sku: sku,
       p_product_name: productName,
       p_barcode: $('manageBarcode').value.trim() || null,
-      p_unit: $('manageUnit').value.trim() || 'ชิ้น',
+      p_unit: $('manageUnit').value.trim() || 'ชุด',
       p_image_url: $('manageImageUrl').value.trim() || null,
       p_is_active: $('manageIsActive').value === 'true',
       p_product_id: productId
@@ -2449,7 +2449,7 @@ $('addProductBtn').addEventListener('click', () => {
   $('manageProductId').value = '';
   $('manageBrand').value = '';
   populateManageCategories();
-  $('manageUnit').value = 'ชิ้น';
+  $('manageUnit').value = 'ชุด';
   $('manageIsActive').value = 'true';
   updateManageImagePreview();
   $('productManageTitle').textContent = 'เพิ่มสินค้าใหม่';
