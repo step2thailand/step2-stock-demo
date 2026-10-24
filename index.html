@@ -1367,7 +1367,7 @@ $("startScanBtn").addEventListener("click", async () => {
             } else {
               const product = productsData.find(p => p.id === selectedId);
               if (product) {
-                existing.push({ productId: selectedId, sku: product.sku, name: product.product_name, quantity: 1 });
+                existing.push({ productId: selectedId, sku: product.sku, name: product.product_name, quantity: 1, sourceLocationId: '', idempotencyKey: null, saved: false });
                 window.__transactionScanQueue = existing;
                 renderTransactionScanQueue();
               }
@@ -1401,64 +1401,60 @@ $("stopScanBtn").addEventListener("click", stopScanner);
 function renderTransactionScanQueue() {
   const items = window.__transactionScanQueue || [];
   let panel = $('transactionScanQueue');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'transactionScanQueue';
-    panel.className = 'panel';
-    panel.style.marginTop = '12px';
-    $('barcodeField').appendChild(panel);
-  }
-  if (!items.length) {
-    panel.classList.add('hidden');
-    panel.innerHTML = '';
-    return;
-  }
+  if (!panel) { panel = document.createElement('div'); panel.id = 'transactionScanQueue'; panel.className = 'panel'; panel.style.marginTop = '12px'; $('barcodeField').appendChild(panel); }
+  if (!items.length) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
   panel.classList.remove('hidden');
-  panel.innerHTML = '<strong>รายการที่สแกนไว้ (' + items.length + ')</strong><p class="muted">รายการนี้เป็นเพียงร่าง ยังไม่ได้บันทึกสต๊อก กรุณาตรวจจำนวนก่อนทำรายการ</p>' +
-    '<ul>' + items.map((item, index) => '<li style="margin:10px 0">' +
-    '<strong>' + escapeHtml(item.sku) + '</strong> — ' + escapeHtml(item.name) +
-    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">' +
-    '<button type="button" class="secondary" data-qty-down="' + index + '" style="width:auto;padding:4px 10px" aria-label="ลดจำนวน">−</button>' +
-    '<span>จำนวน <strong>' + item.quantity + '</strong></span>' +
-    '<button type="button" class="secondary" data-qty-up="' + index + '" style="width:auto;padding:4px 10px" aria-label="เพิ่มจำนวน">+</button>' +
-    '<button type="button" class="secondary" data-remove-scan-item="' + index + '" style="width:auto;padding:4px 8px">นำออก</button>' +
-    '</div></li>').join('') + '</ul>' +
-    '<button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto">ล้างรายการสแกน</button>' +
-    '<p class="muted">หมายเหตุ: ยังไม่เปิดบันทึกหลายรายการพร้อมกัน เพื่อป้องกันการตัดสต๊อกผิดพลาด</p>';
-  panel.querySelectorAll('[data-qty-up]').forEach(button => button.addEventListener('click', () => {
-    const index = Number(button.dataset.qtyUp);
-    const queue = window.__transactionScanQueue || [];
-    if (queue[index]) queue[index].quantity += 1;
-    window.__transactionScanQueue = queue;
-    renderTransactionScanQueue();
-  }));
-  panel.querySelectorAll('[data-qty-down]').forEach(button => button.addEventListener('click', () => {
-    const index = Number(button.dataset.qtyDown);
-    const queue = window.__transactionScanQueue || [];
-    if (queue[index]) {
-      queue[index].quantity -= 1;
-      if (queue[index].quantity <= 0) queue.splice(index, 1);
+  const locationOptions = item => locationsData.filter(location => {
+    const balance = balanceData.find(row => row.product_id === item.productId && row.location_id === location.id);
+    return availableQty(balance) > 0;
+  }).sort((a,b) => a.location_code.localeCompare(b.location_code)).map(location => {
+    const balance = balanceData.find(row => row.product_id === item.productId && row.location_id === location.id);
+    return '<option value="' + escapeHtml(location.id) + '"' + (item.sourceLocationId === location.id ? ' selected' : '') + '>' + escapeHtml(location.location_code + ' (ชั้น ' + location.floor_no + ') — พร้อมขาย ' + availableQty(balance)) + '</option>';
+  }).join('');
+  panel.innerHTML = '<strong>รายการสแกน (' + items.length + ')</strong><p class="muted">เลือก Location ต้นทางและตรวจจำนวนของสินค้าแต่ละรายการก่อนยืนยัน</p><ul>' +
+    items.map((item,index) => '<li style="margin:12px 0;padding-bottom:10px;border-bottom:1px solid #ddd"><strong>' + escapeHtml(item.sku) + '</strong> — ' + escapeHtml(item.name) +
+    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="secondary" data-qty-down="' + index + '" style="width:auto;padding:4px 10px">−</button><span>จำนวน <strong>' + item.quantity + '</strong></span><button type="button" class="secondary" data-qty-up="' + index + '" style="width:auto;padding:4px 10px">+</button><button type="button" class="secondary" data-remove-scan-item="' + index + '" style="width:auto;padding:4px 8px">นำออก</button></div>' +
+    '<label style="margin-top:8px">Location ต้นทาง</label><select data-source-location="' + index + '"' + (item.saved ? ' disabled' : '') + '><option value="">เลือก Location ต้นทาง</option>' + locationOptions(item) + '</select>' +
+    (item.saved ? '<p class="muted">บันทึกสำเร็จแล้ว — จะไม่ส่งรายการนี้ซ้ำ</p>' : '') + '</li>').join('') + '</ul>' +
+    '<button type="button" id="submitTransactionScanQueue" style="width:100%">ยืนยันเบิกรายการที่ยังไม่สำเร็จ</button><button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto;margin-top:8px"' + (items.some(item => item.saved) ? ' disabled' : '') + '>ล้างคิว</button><p class="muted">ระบบบันทึกทีละรายการ และหยุดเมื่อพบข้อผิดพลาด</p>';
+  panel.querySelectorAll('[data-source-location]').forEach(el => el.addEventListener('change', () => { const q=window.__transactionScanQueue||[]; if(q[Number(el.dataset.sourceLocation)]) q[Number(el.dataset.sourceLocation)].sourceLocationId=el.value; window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
+  panel.querySelectorAll('[data-qty-up]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], item=q[Number(el.dataset.qtyUp)]; if(item&&!item.saved) item.quantity+=1; window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
+  panel.querySelectorAll('[data-qty-down]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], index=Number(el.dataset.qtyDown), item=q[index]; if(item&&!item.saved){item.quantity-=1;if(item.quantity<=0)q.splice(index,1);} window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
+  panel.querySelectorAll('[data-remove-scan-item]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], index=Number(el.dataset.removeScanItem); if(q[index]&&!q[index].saved)q.splice(index,1); window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
+  $('clearTransactionScanQueue').addEventListener('click', () => { if(window.confirm('ล้างรายการสแกนทั้งหมดหรือไม่?')){window.__transactionScanQueue=[];renderTransactionScanQueue();} });
+  $('submitTransactionScanQueue').addEventListener('click', submitTransactionScanQueue);
+}
+
+async function submitTransactionScanQueue() {
+  const queue=window.__transactionScanQueue||[];
+  if(busy||!currentUserId||!queue.length)return;
+  const pending=queue.filter(item=>!item.saved);
+  if(!pending.length){window.__transactionScanQueue=[];renderTransactionScanQueue();return;}
+  for(const item of pending){
+    if(!item.sourceLocationId||!Number.isSafeInteger(Number(item.quantity))||Number(item.quantity)<=0){setStatus('transactionStatus','กรุณาเลือก Location และตรวจจำนวนของทุกรายการ',true);return;}
+    const balance=balanceData.find(row=>row.product_id===item.productId&&row.location_id===item.sourceLocationId);
+    if(Number(item.quantity)>availableQty(balance)){setStatus('transactionStatus','สินค้า '+item.sku+' มีจำนวนเบิกเกินยอดพร้อมขายที่ Location นี้ กรุณารีเฟรชและตรวจสอบใหม่',true);return;}
+  }
+  const summary=pending.map(item=>{const loc=locationsData.find(location=>location.id===item.sourceLocationId);return item.sku+' × '+item.quantity+' — '+(loc?.location_code||'ไม่ทราบ Location');}).join('\\n');
+  if(!window.confirm('ยืนยันเบิกสินค้าต่อไปนี้?\\n\\n'+summary+'\\n\\nระบบจะบันทึกทีละรายการและหยุดเมื่อพบข้อผิดพลาด'))return;
+  busy=true;$('submitTransaction').disabled=true;let savedThisRun=0;
+  try{
+    for(const item of pending){
+      item.idempotencyKey=item.idempotencyKey||createIdempotencyKey('scan-out');
+      const {error}=await db.rpc('process_stock_transaction',{p_idempotency_key:item.idempotencyKey,p_transaction_type:'OUT',p_product_id:item.productId,p_quantity:Number(item.quantity),p_from_location_id:item.sourceLocationId,p_to_location_id:null,p_notes:$('notes').value.trim()||null});
+      if(error)throw new Error(item.sku+': '+error.message);
+      item.saved=true;savedThisRun++;window.__transactionScanQueue=queue;renderTransactionScanQueue();
     }
-    window.__transactionScanQueue = queue;
-    renderTransactionScanQueue();
-  }));
-  panel.querySelectorAll('[data-remove-scan-item]').forEach(button => button.addEventListener('click', () => {
-    const index = Number(button.dataset.removeScanItem);
-    const queue = window.__transactionScanQueue || [];
-    queue.splice(index, 1);
-    window.__transactionScanQueue = queue;
-    renderTransactionScanQueue();
-  }));
-  $('clearTransactionScanQueue').addEventListener('click', () => {
-    if (!window.confirm('ล้างรายการสแกนทั้งหมดหรือไม่?')) return;
-    window.__transactionScanQueue = [];
-    renderTransactionScanQueue();
-  });
+    setStatus('transactionStatus','บันทึกสำเร็จ '+savedThisRun+' รายการ กำลังรีเฟรชยอดสต๊อก');
+    await refreshAll();window.__transactionScanQueue=[];renderTransactionScanQueue();await closeWithdrawalWizard();
+  }catch(error){
+    window.__transactionScanQueue=queue;setStatus('transactionStatus','หยุดเพื่อป้องกันการเบิกซ้ำ: '+(error.message||'เกิดข้อผิดพลาด')+'. รายการที่สำเร็จจะถูกทำเครื่องหมายไว้ กรุณาตรวจยอดและประวัติก่อนลองอีกครั้ง',true);renderTransactionScanQueue();
+    try{await refreshAll();}catch(e){console.error(e);}
+  }finally{busy=false;$('submitTransaction').disabled=false;renderTransactionScanQueue();}
 }
 
 
-
-  function updateSourceLocationOptions() {
+function updateSourceLocationOptions() {
     const productId = $('transactionProduct').value;
     const type = $('transactionType').value;
     const previousValue = $('sourceLocation').value;
@@ -2222,8 +2218,8 @@ $('logoutBtn').addEventListener('click', async () => {
     if (busy || !currentUserId) return;
     const scanQueue = window.__transactionScanQueue || [];
     if (scanQueue.length > 0) {
-      setStatus('transactionStatus', 'มีรายการอยู่ในคิวสแกน ' + scanQueue.length + ' รายการ แต่ขั้นตอนบันทึกหลายรายการยังไม่เปิดใช้งานเพื่อป้องกันการเบิกผิด กรุณาล้างคิว แล้วทำรายการทีละสินค้าในตอนนี้', true);
-      return;
+      if ($('transactionType').value !== 'OUT') { setStatus('transactionStatus', 'คิวสแกนหลายรายการรองรับเฉพาะเมนูเบิกสินค้า กรุณาล้างคิวก่อนทำรายการประเภทอื่น', true); return; }
+      await submitTransactionScanQueue(); return;
     }
 
     const type = $('transactionType').value;
