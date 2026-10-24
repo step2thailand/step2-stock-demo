@@ -730,7 +730,7 @@
   }
 
   function renderStock() {
-    const search = $('search').value.trim().toLowerCase();
+    const searchTerms = $('search').value.split('|').map(term => term.trim().toLowerCase()).filter(Boolean);
     const floor = $('floor').value;
     const rows = [];
 
@@ -751,7 +751,7 @@
           productBrand(product), productCategory(product)
         ].join(' ').toLowerCase();
 
-        if (search && !searchable.includes(search)) continue;
+        if (searchTerms.length && !searchTerms.some(term => searchable.includes(term))) continue;
 
         rows.push({
           sku: product.sku,
@@ -2230,6 +2230,9 @@ const destinationId =
 let stockHtml5QrCode = null;
 let stockScannerRunning = false;
 let stockScanHandling = false;
+let stockScannedProducts = [];
+let stockLastScanCode = '';
+let stockLastScanAt = 0;
 
 let stockLookupStep = 1;
 
@@ -2250,6 +2253,7 @@ function setStockLookupStep(step) {
 
 function resetStockLookupWizard() {
   $('search').value = '';
+  stockScannedProducts = [];
   $('floor').value = '';
   $('scannedProductDetails').classList.add('hidden');
   $('scannedProductInfo').innerHTML = '';
@@ -2327,6 +2331,8 @@ async function stopStockScanner() {
   stockHtml5QrCode = null;
   stockScannerRunning = false;
   stockScanHandling = false;
+  stockLastScanCode = '';
+  stockLastScanAt = 0;
 
   $("stockScanReader").classList.add("hidden");
   $("stockScanBtn").textContent = "📷 สแกน Barcode";
@@ -2357,36 +2363,46 @@ $("stockScanBtn").addEventListener("click", async () => {
       { fps: 10, qrbox: { width: 250, height: 150 } },
       async decodedText => {
         if (stockScanHandling) return;
-        stockScanHandling = true;
-
-        $("search").value = decodedText;
-        $("search").dispatchEvent(new Event("input", { bubbles: true }));
-        showScannedProductDetails(decodedText);
         const normalized = String(decodedText || '').trim().toLowerCase();
-        const scanMatches = productsData.filter(p =>
-          [p.barcode, p.sku].some(value => String(value || '').trim().toLowerCase() === normalized)
-        );
-        const recognized = scanMatches.length === 1;
-        playScanFeedback(recognized);
-        
-        await stopStockScanner();
-
-        setStatus(
-          "stockScanStatus",
-          recognized
-            ? `สแกนสำเร็จ: ${decodedText} — กด “ดูยอดสต๊อก” เพื่อแสดงรายละเอียด`
-            : `ไม่พบสินค้า Barcode/SKU: ${decodedText} — ลองสแกนอีกครั้งหรือกรอก SKU เอง`,
-          !recognized
-        );
-        setStatus('status', '');
-        renderStock();
-        // Keep the wizard on step 1 so the employee can confirm by pressing “ดูยอดสต๊อก”.
+        const now = Date.now();
+        // Barcode scanners report the same code on many consecutive frames.
+        if (!normalized || (normalized === stockLastScanCode && now - stockLastScanAt < 1800)) return;
+        stockScanHandling = true;
+        stockLastScanCode = normalized;
+        stockLastScanAt = now;
+        try {
+          const scanMatches = productsData.filter(p =>
+            [p.barcode, p.sku].some(value => String(value || '').trim().toLowerCase() === normalized)
+          );
+          const recognized = scanMatches.length === 1;
+          playScanFeedback(recognized);
+          if (!recognized) {
+            setStatus("stockScanStatus", `ไม่พบสินค้า Barcode/SKU: ${decodedText} — สแกนรายการถัดไปได้ หรือกรอก SKU เอง`, true);
+            return;
+          }
+          const product = scanMatches[0];
+          const alreadyAdded = stockScannedProducts.some(item => item.id === product.id);
+          if (alreadyAdded) {
+            setStatus("stockScanStatus", `สแกนซ้ำ: ${product.sku} อยู่ในรายการแล้ว — ไม่ได้เพิ่มซ้ำ`);
+            return;
+          }
+          stockScannedProducts.push({ id: product.id, sku: product.sku, name: product.product_name });
+          $("search").value = stockScannedProducts.map(item => item.sku).join(" | ");
+          $("search").dispatchEvent(new Event("input", { bubbles: true }));
+          showScannedProductDetails(product.sku);
+          renderStock();
+          setStatus("stockScanStatus", `เพิ่ม ${product.sku} แล้ว รวม ${stockScannedProducts.length} รายการ — สแกนตัวถัดไปได้เลย หรือกด “หยุดสแกน”`);
+          setStatus('status', '');
+        } finally {
+          // Let subsequent frames through after this barcode has been handled.
+          window.setTimeout(() => { stockScanHandling = false; }, 350);
+        }
       },
       () => {}
     );
 
     stockScannerRunning = true;
-    setStatus("stockScanStatus", "เปิดกล้องแล้ว กรุณาหันกล้องไปที่ Barcode");
+    setStatus("stockScanStatus", "เปิดกล้องแล้ว — สแกนสินค้าได้ต่อเนื่องหลายรายการ; สแกนซ้ำจะไม่เพิ่มรายการซ้ำ");
   } catch (error) {
     console.error("เปิดกล้องค้นหาสต็อกไม่สำเร็จ:", error);
     setStatus("stockScanStatus", "เปิดกล้องไม่สำเร็จ กรุณาตรวจสอบสิทธิ์กล้อง", true);
