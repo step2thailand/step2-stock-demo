@@ -2270,6 +2270,12 @@ $('stockLookupBackBtn').addEventListener('click', () => {
 $('stockLookupNextBtn').addEventListener('click', () => {
   if (stockLookupStep === 1) {
     const query = $('search').value.trim().toLowerCase();
+    if (stockScannedProducts.length > 0) {
+      renderStock();
+      setStatus('status', 'สแกนแล้ว ' + stockScannedProducts.length + ' รายการ — แสดงยอดสต๊อกแยกตาม Location');
+      setStockLookupStep(2);
+      return;
+    }
     if (!query) {
       setStatus('status', 'กรุณากรอก SKU ชื่อสินค้า หรือ Barcode ก่อนตรวจสอบสต๊อก', true);
       $('search').focus();
