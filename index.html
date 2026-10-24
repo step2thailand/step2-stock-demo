@@ -1340,7 +1340,7 @@ $("startScanBtn").addEventListener("click", async () => {
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 250, height: 150 } },
       async decodedText => {
-        if (transactionScanPaused) return;
+        if (transactionScanPaused || busy) return;
         const normalized = String(decodedText || '').trim().toLowerCase();
         const now = Date.now();
         // Ignore repeated video frames for the same barcode, but keep the camera running.
@@ -1417,10 +1417,10 @@ function renderTransactionScanQueue() {
   }).join('');
   panel.innerHTML = '<strong>รายการสแกน (' + items.length + ')</strong><p class="muted">เลือก Location ต้นทางและตรวจจำนวนของสินค้าแต่ละรายการก่อนยืนยัน</p><ul>' +
     items.map((item,index) => '<li style="margin:12px 0;padding-bottom:10px;border-bottom:1px solid #ddd"><strong>' + escapeHtml(item.sku) + '</strong> — ' + escapeHtml(item.name) +
-    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="secondary" data-qty-down="' + index + '"' + (item.saved ? ' disabled' : '') + ' style="width:auto;padding:4px 10px">−</button><span>จำนวน <strong>' + item.quantity + '</strong></span><button type="button" class="secondary" data-qty-up="' + index + '"' + (item.saved ? ' disabled' : '') + ' style="width:auto;padding:4px 10px">+</button><button type="button" class="secondary" data-remove-scan-item="' + index + '"' + (item.saved ? ' disabled' : '') + ' style="width:auto;padding:4px 8px">นำออก</button></div>' +
-    '<label style="margin-top:8px">Location ต้นทาง</label><select data-source-location="' + index + '"' + (item.saved ? ' disabled' : '') + '><option value="">เลือก Location ต้นทาง</option>' + locationOptions(item) + '</select>' +
+    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="secondary" data-qty-down="' + index + '"' + (item.saved || busy ? ' disabled' : '') + ' style="width:auto;padding:4px 10px">−</button><span>จำนวน <strong>' + item.quantity + '</strong></span><button type="button" class="secondary" data-qty-up="' + index + '"' + (item.saved || busy ? ' disabled' : '') + ' style="width:auto;padding:4px 10px">+</button><button type="button" class="secondary" data-remove-scan-item="' + index + '"' + (item.saved || busy ? ' disabled' : '') + ' style="width:auto;padding:4px 8px">นำออก</button></div>' +
+    '<label style="margin-top:8px">Location ต้นทาง</label><select data-source-location="' + index + '"' + (item.saved || busy ? ' disabled' : '') + '><option value="">เลือก Location ต้นทาง</option>' + locationOptions(item) + '</select>' +
     (item.saved ? '<p class="muted">บันทึกสำเร็จแล้ว — จะไม่ส่งรายการนี้ซ้ำ</p>' : '') + '</li>').join('') + '</ul>' +
-    '<button type="button" id="submitTransactionScanQueue" style="width:100%">ยืนยันเบิกรายการที่ยังไม่สำเร็จ</button><button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto;margin-top:8px"' + (items.some(item => item.saved) ? ' disabled' : '') + '>ล้างคิว</button><p class="muted">ระบบบันทึกทีละรายการ และหยุดเมื่อพบข้อผิดพลาด</p>';
+    '<button type="button" id="submitTransactionScanQueue"' + (busy ? ' disabled' : '') + ' style="width:100%">ยืนยันเบิกรายการที่ยังไม่สำเร็จ</button><button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto;margin-top:8px"' + (items.some(item => item.saved) || busy ? ' disabled' : '') + '>ล้างคิว</button><p class="muted">ระบบบันทึกทีละรายการ และหยุดเมื่อพบข้อผิดพลาด</p>';
   panel.querySelectorAll('[data-source-location]').forEach(el => el.addEventListener('change', () => { const q=window.__transactionScanQueue||[]; if(q[Number(el.dataset.sourceLocation)]) q[Number(el.dataset.sourceLocation)].sourceLocationId=el.value; window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
   panel.querySelectorAll('[data-qty-up]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], item=q[Number(el.dataset.qtyUp)]; if(item&&!item.saved) item.quantity+=1; window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
   panel.querySelectorAll('[data-qty-down]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], index=Number(el.dataset.qtyDown), item=q[index]; if(item&&!item.saved){item.quantity-=1;if(item.quantity<=0)q.splice(index,1);} window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
