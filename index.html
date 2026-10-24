@@ -2196,6 +2196,11 @@ $('logoutBtn').addEventListener('click', async () => {
   $('transactionForm').addEventListener('submit', async event => {
     event.preventDefault();
     if (busy || !currentUserId) return;
+    const scanQueue = window.__transactionScanQueue || [];
+    if (scanQueue.length > 0) {
+      setStatus('transactionStatus', 'มีรายการอยู่ในคิวสแกน ' + scanQueue.length + ' รายการ แต่ขั้นตอนบันทึกหลายรายการยังไม่เปิดใช้งานเพื่อป้องกันการเบิกผิด กรุณาล้างคิว แล้วทำรายการทีละสินค้าในตอนนี้', true);
+      return;
+    }
 
     const type = $('transactionType').value;
     const productId = $('transactionProduct').value;
