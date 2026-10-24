@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#2463eb">
   <title>WANGANUBAL INVENTORY</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2853,6 +2855,13 @@ $('stockStatusForm').addEventListener('submit', async event => {
   db.auth.onAuthStateChange((_event, session) => {
     setTimeout(() => applySession(session), 0);
   });
+
+  // Register the PWA app-shell worker. This does not enable offline stock transactions.
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(error => console.warn('Service Worker registration failed:', error));
+    }, { once: true });
+  }
 
   (async function init() {
     const { data, error } = await db.auth.getSession();
