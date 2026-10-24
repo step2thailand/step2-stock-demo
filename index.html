@@ -1349,6 +1349,10 @@ $("startScanBtn").addEventListener("click", async () => {
         transactionLastScanCode = normalized;
         transactionLastScanAt = now;
         try {
+          if ($('transactionType').value !== 'OUT') {
+            setStatus('scanStatus', 'คิวสแกนหลายรายการรองรับเฉพาะเมนูเบิกสินค้า กรุณาเลือก “เบิกออก (OUT)” ก่อนสแกน', true);
+            return;
+          }
           const found = selectProductByBarcode(decodedText);
           playScanFeedback(found);
           if (!found) {
