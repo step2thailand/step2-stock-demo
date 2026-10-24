@@ -1414,10 +1414,34 @@ function renderTransactionScanQueue() {
     return;
   }
   panel.classList.remove('hidden');
-  panel.innerHTML = '<strong>รายการที่สแกนไว้ (' + items.length + ')</strong><p class="muted">รายการนี้เป็นเพียงร่าง ยังไม่ได้บันทึกสต๊อก</p>' +
-    '<ul>' + items.map((item, index) => '<li style="margin:8px 0">' + escapeHtml(item.sku) + ' — ' + escapeHtml(item.name) + ' · จำนวน ' + item.quantity +
-    ' <button type="button" class="secondary" data-remove-scan-item="' + index + '" style="width:auto;padding:4px 8px">นำออก</button></li>').join('') + '</ul>' +
-    '<button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto">ล้างรายการสแกน</button>';
+  panel.innerHTML = '<strong>รายการที่สแกนไว้ (' + items.length + ')</strong><p class="muted">รายการนี้เป็นเพียงร่าง ยังไม่ได้บันทึกสต๊อก กรุณาตรวจจำนวนก่อนทำรายการ</p>' +
+    '<ul>' + items.map((item, index) => '<li style="margin:10px 0">' +
+    '<strong>' + escapeHtml(item.sku) + '</strong> — ' + escapeHtml(item.name) +
+    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+    '<button type="button" class="secondary" data-qty-down="' + index + '" style="width:auto;padding:4px 10px" aria-label="ลดจำนวน">−</button>' +
+    '<span>จำนวน <strong>' + item.quantity + '</strong></span>' +
+    '<button type="button" class="secondary" data-qty-up="' + index + '" style="width:auto;padding:4px 10px" aria-label="เพิ่มจำนวน">+</button>' +
+    '<button type="button" class="secondary" data-remove-scan-item="' + index + '" style="width:auto;padding:4px 8px">นำออก</button>' +
+    '</div></li>').join('') + '</ul>' +
+    '<button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto">ล้างรายการสแกน</button>' +
+    '<p class="muted">หมายเหตุ: ยังไม่เปิดบันทึกหลายรายการพร้อมกัน เพื่อป้องกันการตัดสต๊อกผิดพลาด</p>';
+  panel.querySelectorAll('[data-qty-up]').forEach(button => button.addEventListener('click', () => {
+    const index = Number(button.dataset.qtyUp);
+    const queue = window.__transactionScanQueue || [];
+    if (queue[index]) queue[index].quantity += 1;
+    window.__transactionScanQueue = queue;
+    renderTransactionScanQueue();
+  }));
+  panel.querySelectorAll('[data-qty-down]').forEach(button => button.addEventListener('click', () => {
+    const index = Number(button.dataset.qtyDown);
+    const queue = window.__transactionScanQueue || [];
+    if (queue[index]) {
+      queue[index].quantity -= 1;
+      if (queue[index].quantity <= 0) queue.splice(index, 1);
+    }
+    window.__transactionScanQueue = queue;
+    renderTransactionScanQueue();
+  }));
   panel.querySelectorAll('[data-remove-scan-item]').forEach(button => button.addEventListener('click', () => {
     const index = Number(button.dataset.removeScanItem);
     const queue = window.__transactionScanQueue || [];
