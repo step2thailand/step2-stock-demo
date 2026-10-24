@@ -1215,6 +1215,9 @@ function fillTransactionSelects() {
 let html5QrCode = null;
 let scannerRunning = false;
 let transactionScanResultHandled = false;
+let transactionLastScanCode = '';
+let transactionLastScanAt = 0;
+let transactionScanPaused = false;
 
 function findProductByBarcode(code) {
   const normalized = String(code || "").trim().toLowerCase();
@@ -1298,6 +1301,10 @@ async function stopScanner() {
 
   html5QrCode = null;
   scannerRunning = false;
+  transactionScanResultHandled = false;
+  transactionLastScanCode = '';
+  transactionLastScanAt = 0;
+  transactionScanPaused = false;
 
   $("reader").classList.add("hidden");
   $("stopScanBtn").classList.add("hidden");
@@ -1333,13 +1340,43 @@ $("startScanBtn").addEventListener("click", async () => {
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 250, height: 150 } },
       async decodedText => {
-        // Handle only the first decoded result per scan attempt. Invalid barcodes
-        // must stop the camera too, otherwise each video frame can trigger another beep.
-        if (transactionScanResultHandled) return;
-        transactionScanResultHandled = true;
-        const found = selectProductByBarcode(decodedText);
-        playScanFeedback(found);
-        await stopScanner();
+        if (transactionScanPaused) return;
+        const normalized = String(decodedText || '').trim().toLowerCase();
+        const now = Date.now();
+        // Ignore repeated video frames for the same barcode, but keep the camera running.
+        if (!normalized || (normalized === transactionLastScanCode && now - transactionLastScanAt < 1800)) return;
+        transactionScanPaused = true;
+        transactionLastScanCode = normalized;
+        transactionLastScanAt = now;
+        try {
+          const found = selectProductByBarcode(decodedText);
+          playScanFeedback(found);
+          if (!found) {
+            setStatus('scanStatus', 'ไม่พบสินค้านี้ — กล้องยังเปิดอยู่ สแกนรายการถัดไปหรือกรอก SKU เอง', true);
+          } else {
+            const selectedId = $('transactionProduct').value;
+            const existing = window.__transactionScanQueue || [];
+            const existingIndex = existing.findIndex(item => item.productId === selectedId);
+            if (existingIndex >= 0) {
+              const product = productsData.find(p => p.id === selectedId);
+              const addMore = window.confirm(`สแกนสินค้า ${product?.sku || ''} ซ้ำ\nต้องการเพิ่มจำนวนจาก ${existing[existingIndex].quantity} เป็น ${existing[existingIndex].quantity + 1} หรือไม่?`);
+              if (addMore) {
+                existing[existingIndex].quantity += 1;
+                renderTransactionScanQueue();
+              }
+            } else {
+              const product = productsData.find(p => p.id === selectedId);
+              if (product) {
+                existing.push({ productId: selectedId, sku: product.sku, name: product.product_name, quantity: 1 });
+                window.__transactionScanQueue = existing;
+                renderTransactionScanQueue();
+              }
+            }
+            setStatus('scanStatus', 'เลือกสินค้าแล้ว — กล้องยังเปิดอยู่ สแกนรายการถัดไปได้เลย หรือกด “หยุดสแกน”');
+          }
+        } finally {
+          window.setTimeout(() => { transactionScanPaused = false; }, 500);
+        }
       },
       () => {}
     );
@@ -1357,7 +1394,44 @@ $("startScanBtn").addEventListener("click", async () => {
   }
 });
 
+
 $("stopScanBtn").addEventListener("click", stopScanner);
+
+// Scan queue is a draft only. It never changes stock until each item is reviewed and submitted.
+function renderTransactionScanQueue() {
+  const items = window.__transactionScanQueue || [];
+  let panel = $('transactionScanQueue');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'transactionScanQueue';
+    panel.className = 'panel';
+    panel.style.marginTop = '12px';
+    $('barcodeField').appendChild(panel);
+  }
+  if (!items.length) {
+    panel.classList.add('hidden');
+    panel.innerHTML = '';
+    return;
+  }
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<strong>รายการที่สแกนไว้ (' + items.length + ')</strong><p class="muted">รายการนี้เป็นเพียงร่าง ยังไม่ได้บันทึกสต๊อก</p>' +
+    '<ul>' + items.map((item, index) => '<li style="margin:8px 0">' + escapeHtml(item.sku) + ' — ' + escapeHtml(item.name) + ' · จำนวน ' + item.quantity +
+    ' <button type="button" class="secondary" data-remove-scan-item="' + index + '" style="width:auto;padding:4px 8px">นำออก</button></li>').join('') + '</ul>' +
+    '<button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto">ล้างรายการสแกน</button>';
+  panel.querySelectorAll('[data-remove-scan-item]').forEach(button => button.addEventListener('click', () => {
+    const index = Number(button.dataset.removeScanItem);
+    const queue = window.__transactionScanQueue || [];
+    queue.splice(index, 1);
+    window.__transactionScanQueue = queue;
+    renderTransactionScanQueue();
+  }));
+  $('clearTransactionScanQueue').addEventListener('click', () => {
+    if (!window.confirm('ล้างรายการสแกนทั้งหมดหรือไม่?')) return;
+    window.__transactionScanQueue = [];
+    renderTransactionScanQueue();
+  });
+}
+
 
 
   function updateSourceLocationOptions() {
