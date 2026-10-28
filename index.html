@@ -1423,6 +1423,17 @@ function renderSelectedProductPreview() {
   panel.classList.remove('hidden');
 }
 
+function preferredLocationId(productId, locations, mode) {
+  const candidates = (locations || []).slice();
+  if (!candidates.length) return '';
+  const qtyFor = location => {
+    const balance = balanceData.find(row => row.product_id === productId && row.location_id === location.id);
+    return mode === 'available' ? availableQty(balance) : Number(balance?.quantity || 0);
+  };
+  candidates.sort((a,b) => qtyFor(b) - qtyFor(a) || a.location_code.localeCompare(b.location_code));
+  return candidates[0]?.id || '';
+}
+
 function fillTransactionSelects() {
   const term = $('transactionProductSearch').value.trim().toLowerCase();
   const activeProducts = productsData.filter(p => p.is_active === true && [p.sku, p.product_name, p.barcode, productBrand(p), productCategory(p)].join(' ').toLowerCase().includes(term));
@@ -1458,6 +1469,14 @@ function fillTransactionSelects() {
     locationLabel,
     'เลือกปลายทาง'
   );
+
+  const productId = $('transactionProduct').value;
+  if (productId) {
+    if (!$('destinationLocation').value) {
+      $('destinationLocation').value = preferredLocationId(productId, sortedLocations, 'total');
+    }
+    updateSourceLocationOptions();
+  }
 
   updateTransactionFields();
 }
@@ -1632,7 +1651,17 @@ $("startScanBtn").addEventListener("click", async () => {
             } else {
               const product = productsData.find(p => p.id === selectedId);
               if (product) {
-                existing.push({ productId: selectedId, sku: product.sku, name: product.product_name, quantity: 1, sourceLocationId: '', destinationLocationId: '', idempotencyKey: null, saved: false });
+                const productLocations = locationsData.slice();
+              const sourceCandidates = productLocations.filter(location => {
+                const balance = balanceData.find(row => row.product_id === selectedId && row.location_id === location.id);
+                return availableQty(balance) > 0;
+              });
+              existing.push({
+                productId: selectedId, sku: product.sku, name: product.product_name, quantity: 1,
+                sourceLocationId: preferredLocationId(selectedId, sourceCandidates, 'available'),
+                destinationLocationId: preferredLocationId(selectedId, productLocations, 'total'),
+                idempotencyKey: null, saved: false
+              });
                 window.__transactionScanQueue = existing;
                 renderTransactionScanQueue();
               }
@@ -1675,10 +1704,14 @@ function renderTransactionScanQueue() {
     if (receive) return true;
     const balance = balanceData.find(row => row.product_id === item.productId && row.location_id === location.id);
     return availableQty(balance) > 0;
+  }).sort((a,b) => {
+    const ba = balanceData.find(row => row.product_id === item.productId && row.location_id === a.id);
+    const bb = balanceData.find(row => row.product_id === item.productId && row.location_id === b.id);
+    return (receive ? Number(bb?.quantity || 0) - Number(ba?.quantity || 0) : availableQty(bb) - availableQty(ba)) || a.location_code.localeCompare(b.location_code);
   }).map(location => {
     const balance = balanceData.find(row => row.product_id === item.productId && row.location_id === location.id);
     const label = receive
-      ? location.location_code + ' (ชั้น ' + location.floor_no + ')'
+      ? location.location_code + ' (ชั้น ' + location.floor_no + ') — คงเหลือ ' + Number(balance?.quantity || 0)
       : location.location_code + ' (ชั้น ' + location.floor_no + ') — พร้อมขาย ' + availableQty(balance);
     const selected = receive ? item.destinationLocationId === location.id : item.sourceLocationId === location.id;
     return '<option value="' + escapeHtml(location.id) + '"' + (selected ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
@@ -1781,6 +1814,8 @@ function updateSourceLocationOptions() {
 
     if (availableLocations.some(location => location.id === previousValue)) {
       $('sourceLocation').value = previousValue;
+    } else if (productId && availableLocations.length) {
+      $('sourceLocation').value = preferredLocationId(productId, availableLocations, (type === 'OUT' || type === 'MOVE') ? 'available' : 'total');
     }
   }
 
@@ -3130,6 +3165,7 @@ function renderStatusLocationOptions() {
     '<option value="' + escapeHtml(l.id) + '">' + escapeHtml(l.location_code + ' (ชั้น ' + l.floor_no + ')') + '</option>'
   ).join('');
   if (sorted.some(l => l.id === previous)) $('statusLocation').value = previous;
+  else if (sorted.length) $('statusLocation').value = preferredLocationId(productId, sorted, 'total');
   renderStatusBalanceInfo();
 }
 function renderStatusBalanceInfo() {
