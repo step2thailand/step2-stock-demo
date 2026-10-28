@@ -1601,12 +1601,21 @@ $("startScanBtn").addEventListener("click", async () => {
         transactionLastScanCode = normalized;
         transactionLastScanAt = now;
         try {
-          if (!['OUT', 'IN'].includes($('transactionType').value) || !window.__transactionMultiMode) {
-            setStatus('scanStatus', 'โหมดสแกนหลายรายการไม่พร้อมใช้งาน กรุณาเริ่มจากเมนูเบิกสินค้า/รับสินค้าเข้าใหม่', true);
-            return;
-          }
           const found = selectProductByBarcode(decodedText);
           playScanFeedback(found);
+          if (!window.__transactionMultiMode) {
+            if (found) {
+              setStatus('scanStatus', 'พบสินค้าแล้ว');
+              await stopScanner();
+            } else {
+              setStatus('scanStatus', 'ไม่พบสินค้า กรุณาลองสแกนอีกครั้ง', true);
+            }
+            return;
+          }
+          if (!['OUT', 'IN'].includes($('transactionType').value)) {
+            setStatus('scanStatus', 'โหมดสแกนหลายรายการรองรับเมนูเบิกสินค้าและรับสินค้าเข้าเท่านั้น', true);
+            return;
+          }
           if (!found) {
             setStatus('scanStatus', 'ไม่พบสินค้านี้ — กล้องยังเปิดอยู่ สแกนรายการถัดไปหรือกรอก SKU เอง', true);
           } else {
