@@ -84,6 +84,60 @@ Deno.serve(async (req: Request) => {
     return json({ user: { id: data.user.id, username, created_at: data.user.created_at } }, 201);
   }
 
+  if (action === "update_username") {
+    const userId = typeof body.user_id === "string" ? body.user_id : "";
+    const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+    if (!userId) return json({ error: "ไม่พบรหัสผู้ใช้" }, 400);
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+      return json({ error: "Username ต้องมี 3–32 ตัว ใช้ a-z, 0-9, จุด ขีดกลาง หรือขีดล่าง" }, 400);
+    }
+    if (userId === userResult.user.id) return json({ error: "ไม่อนุญาตให้แก้ไข Username ของบัญชี Admin ผ่านเมนูนี้" }, 403);
+    const { data: targetResult, error: targetError } = await adminClient.auth.admin.getUserById(userId);
+    if (targetError || !targetResult.user) return json({ error: "ไม่พบบัญชีผู้ใช้" }, 404);
+    const target = targetResult.user;
+    if (!target.email?.endsWith("@step2-stock-demo.invalid")) {
+      return json({ error: "แก้ไขได้เฉพาะบัญชี Username ของ WANGANUBAL INVENTORY" }, 400);
+    }
+    const { data: targetAdmin, error: targetRoleError } = await adminClient
+      .from("app_roles").select("user_id").eq("user_id", userId).eq("role", "admin").maybeSingle();
+    if (targetRoleError) return json({ error: "ตรวจสอบสิทธิ์บัญชีไม่สำเร็จ จึงยกเลิกการแก้ไข" }, 500);
+    if (targetAdmin) return json({ error: "ไม่อนุญาตให้แก้ไขบัญชี Admin ผ่านเมนูนี้" }, 403);
+    const email = username + "@step2-stock-demo.invalid";
+    const { data: updated, error } = await adminClient.auth.admin.updateUserById(userId, {
+      email, email_confirm: true, user_metadata: { ...target.user_metadata, username }
+    });
+    if (error) {
+      const message = error.message.toLowerCase().includes("already")
+        ? "Username นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น"
+        : "แก้ไข Username ไม่สำเร็จ: " + error.message;
+      return json({ error: message }, 400);
+    }
+    return json({ success: true, user: { id: updated.user.id, username } });
+  }
+
+  if (action === "reset_password") {
+    const userId = typeof body.user_id === "string" ? body.user_id : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    if (!userId) return json({ error: "ไม่พบรหัสผู้ใช้" }, 400);
+    if (password.length < 8 || password.length > 72) {
+      return json({ error: "Password ต้องมี 8–72 ตัวอักษร" }, 400);
+    }
+    if (userId === userResult.user.id) return json({ error: "ไม่อนุญาตให้เปลี่ยนรหัสผ่านบัญชี Admin ผ่านเมนูนี้" }, 403);
+    const { data: targetResult, error: targetError } = await adminClient.auth.admin.getUserById(userId);
+    if (targetError || !targetResult.user) return json({ error: "ไม่พบบัญชีผู้ใช้" }, 404);
+    const target = targetResult.user;
+    if (!target.email?.endsWith("@step2-stock-demo.invalid")) {
+      return json({ error: "เปลี่ยนรหัสผ่านได้เฉพาะบัญชี Username ของ WANGANUBAL INVENTORY" }, 400);
+    }
+    const { data: targetAdmin, error: targetRoleError } = await adminClient
+      .from("app_roles").select("user_id").eq("user_id", userId).eq("role", "admin").maybeSingle();
+    if (targetRoleError) return json({ error: "ตรวจสอบสิทธิ์บัญชีไม่สำเร็จ จึงยกเลิกการเปลี่ยนรหัสผ่าน" }, 500);
+    if (targetAdmin) return json({ error: "ไม่อนุญาตให้เปลี่ยนรหัสผ่านบัญชี Admin ผ่านเมนูนี้" }, 403);
+    const { error } = await adminClient.auth.admin.updateUserById(userId, { password });
+    if (error) return json({ error: "เปลี่ยนรหัสผ่านไม่สำเร็จ: " + error.message }, 400);
+    return json({ success: true });
+  }
+
   if (action === "delete") {
     const userId = typeof body.user_id === "string" ? body.user_id : "";
     if (!userId) return json({ error: "ไม่พบรหัสผู้ใช้ที่ต้องการลบ" }, 400);
