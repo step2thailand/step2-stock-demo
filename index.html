@@ -3382,6 +3382,49 @@ $('stockStatusForm').addEventListener('submit', async event => {
       function renderBarcodeProducts(){
         const rows=barcodeFiltered();
         barcodeGrid.innerHTML=rows.length?rows.map(p=>{
+          const qty=balanceData.filter(b=>b.product_id===p.id).reduce((s,b)=>s+Number(b.quantity||0),0),svg=makeSkuBarcode(p.sku);
+          return '<article class="barcode-product-card">'+(p.image_url?'<img class="barcode-product-image" src="'+escapeHtml(p.image_url)+'" alt="" onerror="this.style.display=\'none\'">':'<div class="barcode-product-image" style="display:grid;place-items:center">ไม่มีรูปสินค้า</div>')+'<div class="barcode-meta">'+escapeHtml(productBrand(p)||'')+' · '+escapeHtml(productCategory(p)||'')+'</div><div class="barcode-sku">รหัสสินค้า: '+escapeHtml(p.sku)+'</div><div class="barcode-product-name">'+escapeHtml(p.product_name)+'</div><div class="barcode-meta">Barcode: SKU ('+escapeHtml(p.sku)+')</div><div class="barcode-meta">จำนวนคงเหลือรวม: <strong>'+qty+'</strong> '+escapeHtml(p.unit||'ชุด')+'</div>'+(svg?'<img class="barcode-image" alt="Barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'">':'')+'<div class="barcode-actions"><button type="button" data-save-sku-barcode="'+escapeHtml(p.id)+'">ดาวน์โหลด SVG</button><button type="button" class="secondary" data-print-sku-barcode="'+escapeHtml(p.id)+'">พิมพ์บาร์โค้ด</button></div></article>';
+        }).join(''):'<p class="muted">'+(barcodeBrandSelect.value?'ไม่พบสินค้า':'กรุณาเลือกแบรนด์สินค้า')+'</p>';
+        setStatus('barcodeManagementStatus',barcodeBrandSelect.value?'แสดง '+rows.length+' รายการ · สร้างบาร์โค้ดจาก SKU':'กรุณาเลือกแบรนด์สินค้า');
+      }
+      barcodeBrandSelect.addEventListener('change',()=>{populateBarcodeCategories();renderBarcodeProducts();});
+      barcodeCategorySelect.addEventListener('change',renderBarcodeProducts);
+      barcodeProductSearch.addEventListener('input',renderBarcodeProducts);
+      document.getElementById('syncSkuBarcodeBtn').addEventListener('click',async()=>{
+        const rows=productsData.filter(p=>p.is_active!==false);
+        if(!rows.length){setStatus('barcodeManagementStatus','ไม่มีสินค้าให้ปรับปรุง',true);return;}
+        const duplicateSkus=rows.map(p=>String(p.sku||'').trim()).filter((s,i,a)=>!s||a.indexOf(s)!==i);
+        if(duplicateSkus.length){setStatus('barcodeManagementStatus','พบ SKU ว่างหรือซ้ำ จึงหยุดเพื่อป้องกันบาร์โค้ดซ้ำ',true);return;}
+        if(!confirm('ยืนยันเปลี่ยน Barcode ในฐานข้อมูลของสินค้าใช้งานทั้งหมด '+rows.length+' รายการ ให้เท่ากับ SKU? ฉลากเดิมจะไม่ตรงกับบาร์โค้ดใหม่'))return;
+        const btn=document.getElementById('syncSkuBarcodeBtn');btn.disabled=true;
+        try{
+          setStatus('barcodeManagementStatus','กำลังตรวจสอบสิทธิ์และเตรียมปรับปรุง Barcode...');
+          const token=Date.now().toString(36);
+          const staged=[];
+          for(let i=0;i<rows.length;i++){
+            const p=rows[i],temp='TMPBC-'+token+'-'+i;
+            const result=await db.from('products').update({barcode:temp}).eq('id',p.id).select('id');
+            if(result.error||!result.data||!result.data.length)throw new Error(result.error?.message||('ไม่มีสิทธิ์แก้ไขหรือไม่พบสินค้า '+p.sku));
+            staged.push({p,temp});
+          }
+          for(const item of staged){
+            const result=await db.from('products').update({barcode:String(item.p.sku).trim()}).eq('id',item.p.id).select('id');
+            if(result.error||!result.data||!result.data.length)throw new Error(result.error?.message||('อัปเดตไม่สำเร็จที่ SKU '+item.p.sku+'. ติดต่อผู้ดูแลระบบเพื่อตรวจสอบข้อมูล'));
+          }
+          productsData=productsData.map(p=>p.is_active===false?p:{...p,barcode:String(p.sku||'').trim()});
+          renderBarcodeProducts();
+          setStatus('barcodeManagementStatus','อัปเดต Barcode ในฐานข้อมูลให้ตรง SKU แล้ว '+rows.length+' รายการ กรุณาพิมพ์ฉลากใหม่');
+        }catch(err){
+          setStatus('barcodeManagementStatus','หยุดการอัปเดต: '+err.message+' ข้อมูลอาจอัปเดตได้บางส่วน กรุณาแจ้งผู้ดูแลระบบให้ตรวจสอบ Barcode ก่อนใช้งานต่อ',true);
+        }finally{btn.disabled=false;}
+      });
+      barcodeGrid.addEventListener('click',e=>{
+        const dl=e.target.closest('[data-save-sku-barcode]'),pr=e.target.closest('[data-print-sku-barcode]');
+        if(dl){const p=productsData.find(x=>String(x.id)===dl.dataset.saveSkuBarcode);if(p)saveSkuBarcode(p);return;}
+        if(pr){
+          const p=productsData.find(x=>String(x.id)===pr.dataset.printSkuBarcode);if(!p)return;
+          const svg=makeSkuBarcode(p.sku);if(!svg){setStatus('barcodeManagementStatus','สร้างบาร์โค้ดไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ',true);return;}
+          const w=window.open('','_blank');if(!w){setStatus('barcodeManagementStatus','เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่',true);return;}
           w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Barcode '+escapeHtml(p.sku)+'</title><style>body{font-family:Arial,sans-serif;margin:10mm}.label{width:75mm;max-width:100%;text-align:center;padding:4mm;box-sizing:border-box}.barcode{width:100%;height:22mm;object-fit:contain}.product-name{margin-bottom:3mm;font-size:12pt}.sku{font-weight:bold;font-size:14pt;margin-bottom:2mm}@media print{@page{margin:5mm}}</style></head><body><div class="label"><div class="sku">'+escapeHtml(p.sku)+'</div><div class="product-name">'+escapeHtml(p.product_name||'')+'</div><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'"></div><script>window.onload=()=>window.print()<\\/script></body></html>');
           w.document.close();
         }
