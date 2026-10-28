@@ -256,6 +256,47 @@
       min-width:calc(50% - 8px);
     }
   }
+  /* Consistent polished controls across every workflow, not only user management. */
+  button {
+    border-radius:10px;
+    transition:filter .15s ease, transform .15s ease, box-shadow .15s ease;
+    overflow-wrap:anywhere;
+  }
+  button:hover:not(:disabled) { filter:brightness(.96); }
+  button:active:not(:disabled) { transform:translateY(1px); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline:3px solid rgba(37,99,235,.22); outline-offset:2px;
+  }
+  .panel { min-width:0; }
+  .toolbar, .submit-row, .withdrawal-wizard-actions, #statusWizardActions {
+    min-width:0; max-width:100%;
+  }
+  .toolbar button, .submit-row button { min-height:44px; }
+  @media (max-width:700px) {
+    html, body { max-width:100%; overflow-x:hidden; }
+    .container, .panel, .workflow-popup-active { min-width:0; max-width:100%; }
+    .panel { border-radius:14px; box-shadow:0 3px 14px rgba(15,23,42,.035); }
+    input, select, textarea { min-width:0; max-width:100%; font-size:16px; }
+    button { min-height:44px; padding:11px 12px; line-height:1.3; white-space:normal; }
+    .toolbar { display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+    .toolbar input, .toolbar select, .toolbar button {
+      width:100%; max-width:none; min-width:0;
+    }
+    .submit-row { width:100%; max-width:none; }
+    .submit-row button { width:100%; }
+    .form-grid > * { min-width:0; }
+    .workflow-popup-close-row { margin:0 0 10px; }
+    .workflow-popup-close { width:100%; min-width:0; }
+    .withdrawal-wizard-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .withdrawal-wizard-actions button { min-width:0; width:100%; }
+    body.workflow-modal-active #statusWizardActions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    body.workflow-modal-active #statusWizardActions button { min-width:0; width:100%; }
+    .table-wrap { max-width:100%; }
+    .product-catalog-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .product-card { padding:9px; border-radius:12px; }
+    .product-card img { height:120px; }
+  }
+
   .transaction-preview img { width:100px; height:100px; object-fit:contain; background:white; border-radius:8px; }
   .preview-layout { display:flex; gap:12px; align-items:flex-start; }
   @media (max-width:600px) { .preview-layout { flex-direction:column; } }
