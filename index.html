@@ -3364,7 +3364,9 @@ $('stockStatusForm').addEventListener('submit', async event => {
         document.querySelectorAll('.warehouse-menu button[data-warehouse-action]').forEach(el=>{
           const map={OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history'};
           const title=el.querySelector('.menu-title');
-          if(title) title.insertAdjacentHTML('beforebegin',svg(map[el.dataset.warehouseAction]||'boxes','menu-icon'));
+          if(title && !el.querySelector(':scope > svg.menu-icon')) {
+            title.insertAdjacentHTML('beforebegin',svg(map[el.dataset.warehouseAction]||'boxes','menu-icon'));
+          }
         });
         const idMap={logoutBtn:'logout',loginBtn:'login',startScanBtn:'camera',stopScanBtn:'stop',stockScanBtn:'camera',statusStartScanBtn:'camera',statusStopScanBtn:'stop',withdrawalCancelBtn:'cancel',cancelProductBtn:'cancel',statusWizardCancelBtn:'cancel',withdrawalBackBtn:'back',catalogBackBtn:'back',stockLookupBackBtn:'back',statusWizardBackBtn:'back',withdrawalNextBtn:'next',catalogNextBtn:'next',stockLookupNextBtn:'scanSearch',statusWizardNextBtn:'next',submitTransaction:'check',submitStatusChange:'check',saveProductBtn:'save',createUserBtn:'plus',refreshBtn:'refresh',refreshStatusBtn:'refresh',refreshUsersBtn:'refresh',historyRefreshBtn:'refresh',addProductBtn:'plus',submitTransactionScanQueue:'check',clearTransactionScanQueue:'clear'};
         Object.entries(idMap).forEach(([id,icon])=>addIcon(document.getElementById(id),icon,'btn-icon'));
