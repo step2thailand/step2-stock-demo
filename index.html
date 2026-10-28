@@ -456,6 +456,28 @@
         <div class="metric-label">จำนวน Location</div>
         <div id="locationCount" class="metric-value">0</div>
       </div>
+      <button type="button" class="metric low-stock-metric" id="lowStockMetric" aria-controls="lowStockPanel" aria-label="ดูรายการ SKU สต๊อกเหลือน้อย">
+        <span class="metric-label">SKU สต๊อกเหลือน้อย (≤ 5)</span>
+        <span id="lowStockCount" class="metric-value">0</span>
+        <span class="muted">กดเพื่อดูรายการ</span>
+      </button>
+      </div>
+    </section>
+
+    <section class="panel workflow-panel hidden" id="lowStockPanel">
+      <div class="withdrawal-wizard-header">
+        <div>
+          <h2>รายการ SKU สต๊อกเหลือน้อย</h2>
+          <p class="muted">แสดง SKU ที่มียอดคงเหลือรวมทุก Location น้อยกว่าหรือเท่ากับ 5</p>
+        </div>
+        <button type="button" class="secondary" id="closeLowStockBtn">กลับหน้าหลัก</button>
+      </div>
+      <div id="lowStockStatus" class="status" role="status"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>SKU</th><th>ชื่อสินค้า</th><th>แบรนด์</th><th>ยอดคงเหลือ</th></tr></thead>
+          <tbody id="lowStockRows"><tr><td colspan="4">กำลังโหลดข้อมูล...</td></tr></tbody>
+        </table>
       </div>
     </section>
 
@@ -924,6 +946,19 @@
     return product ? product.sku : 'ไม่พบสินค้า';
   }
 
+  function getLowStockProducts() {
+    const totals = new Map();
+    for (const balance of balanceData) {
+      const productId = balance.product_id;
+      totals.set(productId, (totals.get(productId) || 0) + Number(balance.quantity || 0));
+    }
+    return productsData
+      .filter(product => product.is_active !== false)
+      .map(product => ({ ...product, quantity: totals.get(product.id) || 0 }))
+      .filter(product => product.quantity <= 5)
+      .sort((a, b) => a.quantity - b.quantity || String(a.sku).localeCompare(String(b.sku)));
+  }
+
   function renderStock() {
     const searchTerms = $('search').value.split('|').map(term => term.trim().toLowerCase()).filter(Boolean);
     const floor = $('floor').value;
@@ -1000,7 +1035,18 @@
       (sum, item) => sum + Number(item.quantity || 0), 0
     ).toLocaleString();
     $('locationCount').textContent = locationsData.length.toLocaleString();
-    
+
+    const lowStockProducts = getLowStockProducts();
+    $('lowStockCount').textContent = lowStockProducts.length.toLocaleString();
+    $('lowStockRows').innerHTML = lowStockProducts.length
+      ? lowStockProducts.map(item => `<tr>
+          <td data-label="SKU">${escapeHtml(item.sku)}</td>
+          <td data-label="ชื่อสินค้า">${escapeHtml(item.product_name || '—')}</td>
+          <td data-label="แบรนด์">${escapeHtml(productBrand(item) || '—')}</td>
+          <td data-label="ยอดคงเหลือ"><strong>${item.quantity.toLocaleString()}</strong></td>
+        </tr>`).join('')
+      : '<tr><td colspan="4">ไม่มี SKU ที่มียอดคงเหลือไม่เกิน 5</td></tr>';
+
   if ($('productManageRows')) {
     renderProductManagement();
   }
@@ -2286,6 +2332,16 @@ $('logoutBtn').addEventListener('click', async () => {
     if (event.key === 'Escape' && document.body.classList.contains('withdrawal-modal-active')) {
       closeWithdrawalWizard();
     }
+  });
+
+  $('lowStockMetric').addEventListener('click', () => {
+    showWorkflowPanel('lowStockPanel');
+    renderStock();
+  });
+  $('closeLowStockBtn').addEventListener('click', () => {
+    $('lowStockPanel').classList.add('hidden');
+    $('dashboardMetrics').classList.remove('hidden');
+    $('warehouseMenu').classList.remove('hidden');
   });
 
   $('warehouseMenu').querySelectorAll('[data-warehouse-action]').forEach(button => {
