@@ -646,7 +646,7 @@
 
     <section class="panel workflow-panel hidden" id="userManagementPanel">
       <h2>จัดการผู้ใช้งาน</h2>
-      <p class="muted">เพิ่มบัญชีพนักงานด้วย Username และ Password บัญชีใหม่จะเป็นผู้ใช้งานทั่วไป ไม่ใช่ Admin</p>
+      <p class="muted">เพิ่มบัญชีพนักงาน แก้ไข Username และตั้งรหัสผ่านใหม่ได้ บัญชีพนักงานจะไม่มีสิทธิ์ Admin</p>
       <form id="createUserForm">
         <div class="form-grid">
           <div><label for="newUsername">Username</label><input id="newUsername" type="text" minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]+" autocomplete="off" required placeholder="เช่น warehouse01"></div>
@@ -3045,8 +3045,14 @@ $('stockStatusForm').addEventListener('submit', async event => {
       rows.innerHTML = users.length ? users.map(user => {
         const username = escapeHtml(user.username || '');
         const created = user.created_at ? new Date(user.created_at).toLocaleString('th-TH') : '—';
-        return '<tr><td>' + username + (user.id === currentUserId ? ' (บัญชีของคุณ)' : '') + '</td><td>' + escapeHtml(created) + '</td><td>' +
-          (user.id === currentUserId ? '<span class="muted">ไม่สามารถลบบัญชีตัวเอง</span>' : '<button type="button" class="secondary delete-managed-user" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '">ลบผู้ใช้</button>') + '</td></tr>';
+        const isSelf = user.id === currentUserId;
+        const actionButtons = isSelf
+          ? '<span class="muted">บัญชี Admin ปัจจุบัน</span>'
+          : '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button type="button" class="secondary edit-managed-user" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '">แก้ไข Username</button>' +
+            '<button type="button" class="secondary reset-managed-password" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '">ตั้งรหัสผ่านใหม่</button>' +
+            '<button type="button" class="delete-managed-user" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '" style="background:#b91c1c;">ลบผู้ใช้</button></div>';
+        return '<tr><td>' + username + (isSelf ? ' (บัญชีของคุณ)' : '') + '</td><td>' + escapeHtml(created) + '</td><td>' + actionButtons + '</td></tr>';
       }).join('') : '<tr><td colspan="3">ไม่พบผู้ใช้งาน</td></tr>';
     } catch (error) {
       rows.innerHTML = '<tr><td colspan="3">โหลดรายชื่อไม่สำเร็จ</td></tr>';
@@ -3080,18 +3086,59 @@ $('stockStatusForm').addEventListener('submit', async event => {
   });
   $('refreshUsersBtn').addEventListener('click', loadManagedUsers);
   $('managedUsersRows').addEventListener('click', async event => {
-    const button = event.target.closest('.delete-managed-user');
+    const button = event.target.closest('button');
     if (!button || !window.isAppAdmin) return;
+    const userId = button.dataset.userId;
     const username = button.dataset.username || 'ผู้ใช้นี้';
-    if (!confirm('ยืนยันลบบัญชี ' + username + ' ? บัญชีนี้จะเข้าสู่ระบบไม่ได้อีก')) return;
-    button.disabled = true;
-    try {
-      await callUserAdmin({action:'delete',user_id:button.dataset.userId});
-      setStatus('userManagementStatus', 'ลบบัญชี ' + username + ' สำเร็จ');
-      await loadManagedUsers();
-    } catch (error) {
-      setStatus('userManagementStatus', error.message, true);
-      button.disabled = false;
+    if (button.classList.contains('edit-managed-user')) {
+      const nextUsername = prompt('แก้ไข Username ของ ' + username + '\nใช้ a-z, 0-9, จุด ขีดกลาง หรือขีดล่าง จำนวน 3–32 ตัว', username);
+      if (nextUsername === null) return;
+      const normalized = nextUsername.trim().toLowerCase();
+      if (!/^[a-z0-9._-]{3,32}$/.test(normalized)) {
+        setStatus('userManagementStatus', 'Username ต้องมี 3–32 ตัว ใช้ a-z, 0-9, จุด ขีดกลาง หรือขีดล่าง', true);
+        return;
+      }
+      if (normalized === username) { setStatus('userManagementStatus', 'Username ไม่ได้เปลี่ยนแปลง'); return; }
+      button.disabled = true;
+      try {
+        await callUserAdmin({action:'update_username',user_id:userId,username:normalized});
+        setStatus('userManagementStatus', 'แก้ไข Username เป็น ' + normalized + ' สำเร็จ');
+        await loadManagedUsers();
+      } catch (error) {
+        setStatus('userManagementStatus', error.message, true);
+        button.disabled = false;
+      }
+      return;
+    }
+    if (button.classList.contains('reset-managed-password')) {
+      const password = prompt('ตั้งรหัสผ่านใหม่ให้ ' + username + '\nกรอกรหัสผ่านใหม่ 8–72 ตัวอักษร');
+      if (password === null) return;
+      if (password.length < 8 || password.length > 72) {
+        setStatus('userManagementStatus', 'Password ต้องมี 8–72 ตัวอักษร', true);
+        return;
+      }
+      if (!confirm('ยืนยันตั้งรหัสผ่านใหม่ให้ ' + username + ' ?')) return;
+      button.disabled = true;
+      try {
+        await callUserAdmin({action:'reset_password',user_id:userId,password});
+        setStatus('userManagementStatus', 'ตั้งรหัสผ่านใหม่ให้ ' + username + ' สำเร็จ');
+      } catch (error) {
+        setStatus('userManagementStatus', error.message, true);
+        button.disabled = false;
+      }
+      return;
+    }
+    if (button.classList.contains('delete-managed-user')) {
+      if (!confirm('ยืนยันลบบัญชี ' + username + ' ? บัญชีนี้จะเข้าสู่ระบบไม่ได้อีก')) return;
+      button.disabled = true;
+      try {
+        await callUserAdmin({action:'delete',user_id:userId});
+        setStatus('userManagementStatus', 'ลบบัญชี ' + username + ' สำเร็จ');
+        await loadManagedUsers();
+      } catch (error) {
+        setStatus('userManagementStatus', error.message, true);
+        button.disabled = false;
+      }
     }
   });
 
