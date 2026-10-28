@@ -3313,5 +3313,75 @@ $('stockStatusForm').addEventListener('submit', async event => {
     await applySession(data.session);
   })();
 </script>
+
+  <style>
+    .btn-icon { width:18px; height:18px; flex:0 0 18px; display:inline-block; vertical-align:middle; margin-right:7px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .warehouse-menu button .menu-icon { width:28px; height:28px; display:block; margin:0 auto 8px; stroke:currentColor; fill:none; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; opacity:.92; }
+    .warehouse-menu button { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:2px; }
+    .warehouse-menu button .menu-title { display:block; }
+    .warehouse-menu button .menu-description { display:block; }
+    button .btn-icon { pointer-events:none; }
+    @media(max-width:700px) {
+      .warehouse-menu button .menu-icon { width:26px; height:26px; margin-bottom:5px; }
+      .btn-icon { width:17px; height:17px; flex-basis:17px; margin-right:6px; }
+    }
+  </style>
+  <script>
+    (function(){
+      const paths = {
+        packageMinus:'<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3.3 7.6 12 12l8.7-4.4M12 12v9M8 5l9 4.5M8 12h8"/>',
+        scanSearch:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="10.5" cy="10.5" r="3.5"/><path d="m13.2 13.2 3 3"/>',
+        move:'<path d="M5 7h14M15 3l4 4-4 4M19 17H5M9 13l-4 4 4 4"/>',
+        boxes:'<path d="m12 3 8 4.5-8 4.5-8-4.5zM4 12l8 4.5 8-4.5M4 16.5 12 21l8-4.5"/><path d="M12 12v9"/>',
+        packagePlus:'<path d="m12 3 8 4.5-8 4.5-8-4.5zM4 12v5l8 4 8-4v-5M12 12v9"/><path d="M17 3v6M14 6h6"/>',
+        users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        packageCheck:'<path d="m12 3 8 4.5-8 4.5-8-4.5zM4 12v5l8 4 8-4v-5M12 12v9"/><path d="m9 7 2 1 2-1"/>',
+        history:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+        logout:'<path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/>',
+        login:'<path d="M14 17l5-5-5-5M19 12H9"/><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>',
+        camera:'<path d="M14 4h-4L8 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/>',
+        stop:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
+        cancel:'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',
+        back:'<path d="m15 18-6-6 6-6"/>',
+        next:'<path d="m9 18 6-6-6-6"/>',
+        check:'<path d="m5 12 4 4L19 6"/>',
+        save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+        refresh:'<path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.6-2L20 12M4 12l2.9 5a7 7 0 0 0 11.6-2"/>',
+        edit:'<path d="m15 5 4 4M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16z"/>',
+        trash:'<path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/>',
+        plus:'<path d="M12 5v14M5 12h14"/>',
+        minus:'<path d="M5 12h14"/>',
+        clear:'<path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/>'
+      };
+      function svg(name, cls){
+        return '<svg class="'+cls+'" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+(paths[name]||paths.boxes)+'</svg>';
+      }
+      function addIcon(el,name,cls){
+        if(!el || el.querySelector(':scope > svg.'+cls)) return;
+        el.insertAdjacentHTML('afterbegin',svg(name,cls));
+      }
+      function decorate(){
+        document.querySelectorAll('.warehouse-menu button[data-warehouse-action]').forEach(el=>{
+          const map={OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history'};
+          const title=el.querySelector('.menu-title');
+          if(title) title.insertAdjacentHTML('beforebegin',svg(map[el.dataset.warehouseAction]||'boxes','menu-icon'));
+        });
+        const idMap={logoutBtn:'logout',loginBtn:'login',startScanBtn:'camera',stopScanBtn:'stop',stockScanBtn:'camera',statusStartScanBtn:'camera',statusStopScanBtn:'stop',withdrawalCancelBtn:'cancel',cancelProductBtn:'cancel',statusWizardCancelBtn:'cancel',withdrawalBackBtn:'back',catalogBackBtn:'back',stockLookupBackBtn:'back',statusWizardBackBtn:'back',withdrawalNextBtn:'next',catalogNextBtn:'next',stockLookupNextBtn:'scanSearch',statusWizardNextBtn:'next',submitTransaction:'check',submitStatusChange:'check',saveProductBtn:'save',createUserBtn:'plus',refreshBtn:'refresh',refreshStatusBtn:'refresh',refreshUsersBtn:'refresh',historyRefreshBtn:'refresh',addProductBtn:'plus',submitTransactionScanQueue:'check',clearTransactionScanQueue:'clear'};
+        Object.entries(idMap).forEach(([id,icon])=>addIcon(document.getElementById(id),icon,'btn-icon'));
+        document.querySelectorAll('[data-edit-product]').forEach(el=>addIcon(el,'edit','btn-icon'));
+        document.querySelectorAll('[data-delete-product],.delete-managed-user').forEach(el=>addIcon(el,'trash','btn-icon'));
+        document.querySelectorAll('.edit-managed-user').forEach(el=>addIcon(el,'edit','btn-icon'));
+        document.querySelectorAll('.reset-managed-password').forEach(el=>addIcon(el,'save','btn-icon'));
+        document.querySelectorAll('[data-qty-down]').forEach(el=>addIcon(el,'minus','btn-icon'));
+        document.querySelectorAll('[data-qty-up]').forEach(el=>addIcon(el,'plus','btn-icon'));
+        document.querySelectorAll('[data-remove-scan-item]').forEach(el=>addIcon(el,'trash','btn-icon'));
+        document.querySelectorAll('.product-picker-option').forEach(el=>addIcon(el,'boxes','btn-icon'));
+      }
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',decorate);
+      else decorate();
+      new MutationObserver(decorate).observe(document.documentElement,{childList:true,subtree:true});
+    })();
+  </script>
+
 </body>
 </html>
