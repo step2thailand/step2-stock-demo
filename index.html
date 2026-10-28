@@ -256,6 +256,34 @@
       min-width:calc(50% - 8px);
     }
   }
+  /* Stock lookup results become full-width cards on mobile instead of a sideways-scrolling table. */
+  @media (max-width:700px) {
+    #stockLookupPanel .table-wrap { overflow:visible; width:100%; }
+    #stockLookupPanel table { width:100%; min-width:0; border-collapse:separate; border-spacing:0; }
+    #stockLookupPanel thead { display:none; }
+    #stockLookupPanel table,
+    #stockLookupPanel tbody,
+    #stockLookupPanel tbody tr,
+    #stockLookupPanel tbody td { display:block; width:100%; min-width:0; }
+    #stockLookupPanel tbody tr.stock-result-card {
+      margin:0 0 12px; padding:10px 12px; border:1px solid #dbe3ee;
+      border-radius:14px; background:#fff;
+      box-shadow:0 3px 12px rgba(15,23,42,.05); overflow:hidden;
+    }
+    #stockLookupPanel tbody tr.stock-result-card td {
+      display:grid; grid-template-columns:minmax(0, 42%) minmax(0, 1fr);
+      align-items:start; gap:10px; padding:8px 0;
+      border-bottom:1px solid #f1f5f9; overflow-wrap:anywhere; word-break:break-word;
+      font-size:13px; line-height:1.4;
+    }
+    #stockLookupPanel tbody tr.stock-result-card td::before {
+      content:attr(data-label); color:#64748b; font-weight:600;
+    }
+    #stockLookupPanel tbody tr.stock-result-card td:last-child { border-bottom:0; }
+    #stockLookupPanel tbody tr:not(.stock-result-card) td { display:block; }
+    #stockLookupPanel tbody td[colspan]::before { content:none; }
+  }
+
   /* Consistent polished controls across every workflow, not only user management. */
   button {
     border-radius:10px;
@@ -879,18 +907,18 @@
       ? rows.map(r => {
           const product = productsData.find(p => p.sku === r.sku);
           const total = product ? (totalByProduct.get(product.id) || 0) : 0;
-          return `<tr>
-            <td>${escapeHtml(r.sku)}</td>
-            <td>${escapeHtml(r.name)}</td>
-            <td>${escapeHtml(productBrand(product) || '—')}</td>
-            <td>${escapeHtml(productCategory(product) || '—')}</td>
-            <td>${escapeHtml(r.location)}</td>
-            <td>${escapeHtml(r.floor)}</td>
-            <td>${escapeHtml(r.quantity)}</td>
-            <td>${escapeHtml(r.available)}</td>
-            <td>${escapeHtml(r.reserved)}</td>
-            <td>${escapeHtml(r.damaged)}</td>
-            <td><strong>${escapeHtml(total.toLocaleString())}</strong></td>
+          return `<tr class="stock-result-card">
+            <td data-label="SKU">${escapeHtml(r.sku)}</td>
+            <td data-label="ชื่อสินค้า">${escapeHtml(r.name)}</td>
+            <td data-label="แบรนด์">${escapeHtml(productBrand(product) || '—')}</td>
+            <td data-label="หมวดหมู่">${escapeHtml(productCategory(product) || '—')}</td>
+            <td data-label="Location">${escapeHtml(r.location)}</td>
+            <td data-label="ชั้น">${escapeHtml(r.floor)}</td>
+            <td data-label="สินค้าจริง">${escapeHtml(r.quantity)}</td>
+            <td data-label="พร้อมขาย">${escapeHtml(r.available)}</td>
+            <td data-label="จองแล้ว">${escapeHtml(r.reserved)}</td>
+            <td data-label="เสียหาย">${escapeHtml(r.damaged)}</td>
+            <td data-label="ยอดรวมทุก Location"><strong>${escapeHtml(total.toLocaleString())}</strong></td>
           </tr>`;
         }).join('')
       : '<tr><td colspan="11">ไม่พบข้อมูลสต๊อก</td></tr>';
