@@ -328,6 +328,61 @@
   .transaction-preview img { width:100px; height:100px; object-fit:contain; background:white; border-radius:8px; }
   .preview-layout { display:flex; gap:12px; align-items:flex-start; }
   @media (max-width:600px) { .preview-layout { flex-direction:column; } }
+  
+    /* Pastel button system: distinct action colors, softer shapes, consistent mobile feel */
+    button {
+      border-radius: 18px;
+      border: 1px solid transparent;
+      background: #dbeafe;
+      color: #24324a;
+      box-shadow: 0 2px 0 rgba(49, 65, 94, .08);
+      transition: background-color .18s ease, box-shadow .18s ease, transform .12s ease;
+    }
+    button.secondary {
+      background: #eee7ff;
+      color: #493d70;
+      border-color: #ded3ff;
+      box-shadow: 0 2px 0 rgba(73, 61, 112, .07);
+    }
+    button.delete-managed-user,
+    button[style*="background:#dc2626"],
+    button[style*="background:#b91c1c"] {
+      background: #ffe0e5 !important;
+      color: #8a2d42 !important;
+      border-color: #ffc6d0;
+    }
+    button:hover:not(:disabled) { filter: saturate(1.05) brightness(.985); box-shadow: 0 4px 10px rgba(49, 65, 94, .10); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { box-shadow: none; }
+    .warehouse-menu button.menu-issue { background:#ffe2e8; border-color:#ffcbd6; color:#78384a; }
+    .warehouse-menu button.menu-stock { background:#dff3ff; border-color:#c4e8fa; color:#28566d; }
+    .warehouse-menu button.menu-move { background:#e8e2ff; border-color:#d5caff; color:#4c427a; }
+    .warehouse-menu button.menu-products { background:#dcf7e9; border-color:#c1edd5; color:#285d45; }
+    .warehouse-menu button.menu-add-product { background:#fff0d9; border-color:#ffe1b1; color:#75542b; }
+    .warehouse-menu button.menu-users { background:#fce4f4; border-color:#f4cce5; color:#784467; }
+    .warehouse-menu button.menu-receive { background:#dff5ee; border-color:#c4eadf; color:#285f53; }
+    .warehouse-menu button.menu-status { background:#fff3c9; border-color:#f4e3a0; color:#6c5a20; }
+    .warehouse-menu button[data-warehouse-action="HISTORY"] { background:#e8edf7; border-color:#d5deee; color:#3d4f70; }
+    #loginBtn { background:#d9f3e4; border-color:#bce8cf; color:#24563c; }
+    #logoutBtn { background:#ffe5e5; border-color:#ffd0d0; color:#813c3c; }
+    #startScanBtn, #stockScanBtn, #statusStartScanBtn { background:#d9f1ff; border-color:#b9e4fa; color:#245772; }
+    #stopScanBtn, #statusStopScanBtn { background:#ffe2e2; border-color:#ffcaca; color:#803d3d; }
+    #withdrawalCancelBtn, #cancelProductBtn, #statusWizardCancelBtn { background:#ffe6e8; border-color:#ffd0d6; color:#843d4b; }
+    #withdrawalBackBtn, #catalogBackBtn, #stockLookupBackBtn, #statusWizardBackBtn { background:#eee8ff; border-color:#dcd2ff; color:#4e4377; }
+    #withdrawalNextBtn, #catalogNextBtn, #stockLookupNextBtn, #statusWizardNextBtn { background:#dff5e8; border-color:#c4ebd2; color:#285d42; }
+    #submitTransaction, #submitStatusChange, #saveProductBtn, #createUserBtn { background:#d9f3e4; border-color:#bce8cf; color:#24563c; }
+    #refreshBtn, #refreshStatusBtn, #refreshUsersBtn, #historyRefreshBtn { background:#fff0d9; border-color:#ffe0ad; color:#73542c; }
+    #addProductBtn { background:#fce5f4; border-color:#f2cce4; color:#784466; }
+    #submitTransactionScanQueue { background:#dff5e8; border-color:#c4ebd2; color:#285d42; }
+    #clearTransactionScanQueue { background:#ffe6e8; border-color:#ffd0d6; color:#843d4b; }
+    .product-picker-option { border-radius:0; box-shadow:none; }
+    .product-picker-option:hover:not(:disabled) { box-shadow:none; background:#f3f0ff; }
+    .warehouse-menu button { border-radius:22px; }
+    @media (max-width:700px) {
+      button { border-radius:20px; }
+      .warehouse-menu button { border-radius:24px; }
+    }
+
   </style>
 </head>
 <body>
