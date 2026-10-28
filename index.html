@@ -482,6 +482,16 @@
       </div>
     </section>
 
+    <section class="panel workflow-panel hidden" id="transactionModePanel">
+      <h2 id="transactionModeTitle">เลือกวิธีทำรายการ</h2>
+      <p class="muted" id="transactionModeDescription">เลือกว่าจะทำทีละรายการหรือหลายรายการ</p>
+      <div class="form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+        <button type="button" id="singleTransactionMode" style="min-height:100px;">ทีละรายการ</button>
+        <button type="button" id="multiTransactionMode" style="min-height:100px;background:#0f766e;">หลายรายการ</button>
+      </div>
+      <button type="button" class="secondary" id="cancelTransactionMode" style="margin-top:12px;">ยกเลิก</button>
+    </section>
+
     <section class="panel workflow-panel hidden" id="transactionPanel">
       <h2 id="transactionPanelTitle">ทำรายการสต๊อก</h2>
       <p id="transactionPanelDescription" class="muted">
@@ -1591,8 +1601,8 @@ $("startScanBtn").addEventListener("click", async () => {
         transactionLastScanCode = normalized;
         transactionLastScanAt = now;
         try {
-          if ($('transactionType').value !== 'OUT') {
-            setStatus('scanStatus', 'คิวสแกนหลายรายการรองรับเฉพาะเมนูเบิกสินค้า กรุณาเลือก “เบิกออก (OUT)” ก่อนสแกน', true);
+          if (!['OUT', 'IN'].includes($('transactionType').value) || !window.__transactionMultiMode) {
+            setStatus('scanStatus', 'โหมดสแกนหลายรายการไม่พร้อมใช้งาน กรุณาเริ่มจากเมนูเบิกสินค้า/รับสินค้าเข้าใหม่', true);
             return;
           }
           const found = selectProductByBarcode(decodedText);
@@ -1613,7 +1623,7 @@ $("startScanBtn").addEventListener("click", async () => {
             } else {
               const product = productsData.find(p => p.id === selectedId);
               if (product) {
-                existing.push({ productId: selectedId, sku: product.sku, name: product.product_name, quantity: 1, sourceLocationId: '', idempotencyKey: null, saved: false });
+                existing.push({ productId: selectedId, sku: product.sku, name: product.product_name, quantity: 1, sourceLocationId: '', destinationLocationId: '', idempotencyKey: null, saved: false });
                 window.__transactionScanQueue = existing;
                 renderTransactionScanQueue();
               }
@@ -1646,25 +1656,36 @@ $("stopScanBtn").addEventListener("click", stopScanner);
 // Scan queue is a draft only. It never changes stock until each item is reviewed and submitted.
 function renderTransactionScanQueue() {
   const items = window.__transactionScanQueue || [];
+  const type = $('transactionType').value;
+  const isReceive = type === 'IN';
   let panel = $('transactionScanQueue');
   if (!panel) { panel = document.createElement('div'); panel.id = 'transactionScanQueue'; panel.className = 'panel'; panel.style.marginTop = '12px'; $('barcodeField').appendChild(panel); }
   if (!items.length) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
   panel.classList.remove('hidden');
-  const locationOptions = item => locationsData.filter(location => {
+  const locationOptions = (item, receive) => locationsData.slice().sort((a,b) => a.location_code.localeCompare(b.location_code)).filter(location => {
+    if (receive) return true;
     const balance = balanceData.find(row => row.product_id === item.productId && row.location_id === location.id);
     return availableQty(balance) > 0;
-  }).sort((a,b) => a.location_code.localeCompare(b.location_code)).map(location => {
+  }).map(location => {
     const balance = balanceData.find(row => row.product_id === item.productId && row.location_id === location.id);
-    return '<option value="' + escapeHtml(location.id) + '"' + (item.sourceLocationId === location.id ? ' selected' : '') + '>' + escapeHtml(location.location_code + ' (ชั้น ' + location.floor_no + ') — พร้อมขาย ' + availableQty(balance)) + '</option>';
+    const label = receive
+      ? location.location_code + ' (ชั้น ' + location.floor_no + ')'
+      : location.location_code + ' (ชั้น ' + location.floor_no + ') — พร้อมขาย ' + availableQty(balance);
+    const selected = receive ? item.destinationLocationId === location.id : item.sourceLocationId === location.id;
+    return '<option value="' + escapeHtml(location.id) + '"' + (selected ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
   }).join('');
-  panel.innerHTML = '<strong>รายการสแกน (' + items.length + ')</strong><p class="muted">เลือก Location ต้นทางและตรวจจำนวนของสินค้าแต่ละรายการก่อนยืนยัน</p><ul>' +
+  panel.innerHTML = '<strong>รายการสแกน ' + (isReceive ? 'รับเข้า' : 'เบิกออก') + ' (' + items.length + ' SKU)</strong><p class="muted">ตรวจจำนวนและเลือก Location ของสินค้าแต่ละรายการก่อนยืนยัน</p><ul>' +
     items.map((item,index) => '<li style="margin:12px 0;padding-bottom:10px;border-bottom:1px solid #ddd"><strong>' + escapeHtml(item.sku) + '</strong> — ' + escapeHtml(item.name) +
     '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="secondary" data-qty-down="' + index + '"' + (item.saved || busy ? ' disabled' : '') + ' style="width:auto;padding:4px 10px">−</button><span>จำนวน <strong>' + item.quantity + '</strong></span><button type="button" class="secondary" data-qty-up="' + index + '"' + (item.saved || busy ? ' disabled' : '') + ' style="width:auto;padding:4px 10px">+</button><button type="button" class="secondary" data-remove-scan-item="' + index + '"' + (item.saved || busy ? ' disabled' : '') + ' style="width:auto;padding:4px 8px">นำออก</button></div>' +
-    '<label style="margin-top:8px">Location ต้นทาง</label><select data-source-location="' + index + '"' + (item.saved || busy ? ' disabled' : '') + '><option value="">เลือก Location ต้นทาง</option>' + locationOptions(item) + '</select>' +
+    '<label style="margin-top:8px">' + (isReceive ? 'Location ปลายทาง' : 'Location ต้นทาง') + '</label><select data-queue-location="' + index + '"' + (item.saved || busy ? ' disabled' : '') + '><option value="">เลือก Location ' + (isReceive ? 'ปลายทาง' : 'ต้นทาง') + '</option>' + locationOptions(item,isReceive) + '</select>' +
     (item.saved ? '<p class="muted">บันทึกสำเร็จแล้ว — จะไม่ส่งรายการนี้ซ้ำ</p>' : '') + '</li>').join('') + '</ul>' +
-    '<button type="button" id="submitTransactionScanQueue"' + (busy ? ' disabled' : '') + ' style="width:100%">ยืนยันเบิกรายการที่ยังไม่สำเร็จ</button><button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto;margin-top:8px"' + (items.some(item => item.saved) || busy ? ' disabled' : '') + '>ล้างคิว</button><p class="muted">ระบบบันทึกทีละรายการ และหยุดเมื่อพบข้อผิดพลาด</p>';
-  panel.querySelectorAll('[data-source-location]').forEach(el => el.addEventListener('change', () => { const q=window.__transactionScanQueue||[]; if(q[Number(el.dataset.sourceLocation)]) q[Number(el.dataset.sourceLocation)].sourceLocationId=el.value; window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
-  panel.querySelectorAll('[data-qty-up]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], item=q[Number(el.dataset.qtyUp)]; if(item&&!item.saved) item.quantity+=1; window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
+    '<button type="button" id="submitTransactionScanQueue"' + (busy ? ' disabled' : '') + ' style="width:100%">ยืนยัน' + (isReceive ? 'รับเข้า' : 'เบิกออก') + 'รายการที่ยังไม่สำเร็จ</button><button type="button" class="secondary" id="clearTransactionScanQueue" style="width:auto;margin-top:8px"' + (items.some(item => item.saved) || busy ? ' disabled' : '') + '>ล้างคิว</button><p class="muted">ระบบบันทึกทีละรายการ และหยุดเมื่อพบข้อผิดพลาด</p>';
+  panel.querySelectorAll('[data-queue-location]').forEach(el => el.addEventListener('change', () => {
+    const q=window.__transactionScanQueue||[], item=q[Number(el.dataset.queueLocation)];
+    if(item){ if(isReceive)item.destinationLocationId=el.value; else item.sourceLocationId=el.value; }
+    window.__transactionScanQueue=q; renderTransactionScanQueue();
+  }));
+  panel.querySelectorAll('[data-qty-up]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], item=q[Number(el.dataset.qtyUp)]; if(item&&!item.saved)item.quantity+=1; window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
   panel.querySelectorAll('[data-qty-down]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], index=Number(el.dataset.qtyDown), item=q[index]; if(item&&!item.saved){item.quantity-=1;if(item.quantity<=0)q.splice(index,1);} window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
   panel.querySelectorAll('[data-remove-scan-item]').forEach(el => el.addEventListener('click', () => { const q=window.__transactionScanQueue||[], index=Number(el.dataset.removeScanItem); if(q[index]&&!q[index].saved)q.splice(index,1); window.__transactionScanQueue=q; renderTransactionScanQueue(); }));
   $('clearTransactionScanQueue').addEventListener('click', () => { if(window.confirm('ล้างรายการสแกนทั้งหมดหรือไม่?')){window.__transactionScanQueue=[];renderTransactionScanQueue();} });
@@ -1673,28 +1694,41 @@ function renderTransactionScanQueue() {
 
 async function submitTransactionScanQueue() {
   const queue=window.__transactionScanQueue||[];
-  if(busy||!currentUserId||!queue.length)return;
+  const type=$('transactionType').value;
+  const isReceive=type==='IN';
+  if(busy||!currentUserId||!queue.length||!['IN','OUT'].includes(type))return;
   const pending=queue.filter(item=>!item.saved);
   if(!pending.length){window.__transactionScanQueue=[];renderTransactionScanQueue();return;}
   for(const item of pending){
-    if(!item.sourceLocationId||!Number.isSafeInteger(Number(item.quantity))||Number(item.quantity)<=0){setStatus('transactionStatus','กรุณาเลือก Location และตรวจจำนวนของทุกรายการ',true);return;}
-    const balance=balanceData.find(row=>row.product_id===item.productId&&row.location_id===item.sourceLocationId);
-    if(Number(item.quantity)>availableQty(balance)){setStatus('transactionStatus','สินค้า '+item.sku+' มีจำนวนเบิกเกินยอดพร้อมขายที่ Location นี้ กรุณารีเฟรชและตรวจสอบใหม่',true);return;}
+    const locationId=isReceive?item.destinationLocationId:item.sourceLocationId;
+    if(!locationId||!Number.isSafeInteger(Number(item.quantity))||Number(item.quantity)<=0){setStatus('transactionStatus','กรุณาเลือก Location และตรวจจำนวนของทุกรายการ',true);return;}
+    if(!isReceive){
+      const balance=balanceData.find(row=>row.product_id===item.productId&&row.location_id===locationId);
+      if(Number(item.quantity)>availableQty(balance)){setStatus('transactionStatus','สินค้า '+item.sku+' มีจำนวนเบิกเกินยอดพร้อมขายที่ Location นี้ กรุณารีเฟรชและตรวจสอบใหม่',true);return;}
+    }
   }
-  const summary=pending.map(item=>{const loc=locationsData.find(location=>location.id===item.sourceLocationId);return item.sku+' × '+item.quantity+' — '+(loc?.location_code||'ไม่ทราบ Location');}).join('\\n');
-  if(!window.confirm('ยืนยันเบิกสินค้าต่อไปนี้?\\n\\n'+summary+'\\n\\nระบบจะบันทึกทีละรายการและหยุดเมื่อพบข้อผิดพลาด'))return;
+  const summary=pending.map(item=>{const locationId=isReceive?item.destinationLocationId:item.sourceLocationId;const loc=locationsData.find(location=>location.id===locationId);return item.sku+' × '+item.quantity+' — '+(loc?.location_code||'ไม่ทราบ Location');}).join('\\n');
+  if(!window.confirm('ยืนยัน'+(isReceive?'รับเข้า':'เบิกออก')+'สินค้าต่อไปนี้?\\n\\n'+summary+'\\n\\nระบบจะบันทึกทีละรายการและหยุดเมื่อพบข้อผิดพลาด'))return;
   busy=true;$('submitTransaction').disabled=true;let savedThisRun=0;
   try{
     for(const item of pending){
-      item.idempotencyKey=item.idempotencyKey||createIdempotencyKey('scan-out');
-      const {error}=await db.rpc('process_stock_transaction',{p_idempotency_key:item.idempotencyKey,p_transaction_type:'OUT',p_product_id:item.productId,p_quantity:Number(item.quantity),p_from_location_id:item.sourceLocationId,p_to_location_id:null,p_notes:$('notes').value.trim()||null});
+      item.idempotencyKey=item.idempotencyKey||createIdempotencyKey(isReceive?'scan-in':'scan-out');
+      const {error}=await db.rpc('process_stock_transaction',{
+        p_idempotency_key:item.idempotencyKey,
+        p_transaction_type:type,
+        p_product_id:item.productId,
+        p_quantity:Number(item.quantity),
+        p_from_location_id:isReceive?null:item.sourceLocationId,
+        p_to_location_id:isReceive?item.destinationLocationId:null,
+        p_notes:$('notes').value.trim()||null
+      });
       if(error)throw new Error(item.sku+': '+error.message);
       item.saved=true;savedThisRun++;window.__transactionScanQueue=queue;renderTransactionScanQueue();
     }
     setStatus('transactionStatus','บันทึกสำเร็จ '+savedThisRun+' รายการ กำลังรีเฟรชยอดสต๊อก');
     await refreshAll();window.__transactionScanQueue=[];renderTransactionScanQueue();await closeWithdrawalWizard();
   }catch(error){
-    window.__transactionScanQueue=queue;setStatus('transactionStatus','หยุดเพื่อป้องกันการเบิกซ้ำ: '+(error.message||'เกิดข้อผิดพลาด')+'. รายการที่สำเร็จจะถูกทำเครื่องหมายไว้ กรุณาตรวจยอดและประวัติก่อนลองอีกครั้ง',true);renderTransactionScanQueue();
+    window.__transactionScanQueue=queue;setStatus('transactionStatus','หยุดเพื่อป้องกันการทำรายการซ้ำ: '+(error.message||'เกิดข้อผิดพลาด')+'. รายการที่สำเร็จจะถูกทำเครื่องหมายไว้ กรุณาตรวจยอดและประวัติก่อนลองอีกครั้ง',true);renderTransactionScanQueue();
     try{await refreshAll();}catch(e){console.error(e);}
   }finally{busy=false;$('submitTransaction').disabled=false;renderTransactionScanQueue();}
 }
@@ -2345,6 +2379,61 @@ $('logoutBtn').addEventListener('click', async () => {
     $('warehouseMenu').classList.remove('hidden');
   });
 
+  function beginTransactionWorkflow(type, multiMode) {
+    window.__transactionMultiMode = !!multiMode;
+    window.__transactionScanQueue = [];
+    const oldQueue = $('transactionScanQueue');
+    if (oldQueue) { oldQueue.classList.add('hidden'); oldQueue.innerHTML = ''; }
+    showWorkflowPanel('transactionPanel');
+    $('transactionType').value = type;
+    $('transactionProductSearch').value = '';
+    $('productPickerResults').classList.add('hidden');
+    $('selectedProductPreview').classList.add('hidden');
+    $('barcodeScanInput').value = '';
+    $('transactionProduct').value = '';
+    $('quantity').value = '';
+    $('notes').value = '';
+    $('sourceLocation').value = '';
+    $('destinationLocation').value = '';
+    setStatus('scanStatus', multiMode ? 'โหมดหลายรายการ: กดเปิดกล้องแล้วสแกนต่อเนื่องได้เลย' : '');
+    setStatus('transactionStatus', '');
+    fillTransactionSelects();
+    updateTransactionFields();
+    $('transactionProduct').required = false;
+    $('quantity').required = false;
+    $('destinationLocation').required = false;
+    openWithdrawalWizard(type);
+    if (multiMode) {
+      $('transactionPanelDescription').textContent = 'สแกนสินค้าได้ต่อเนื่อง รายการจะถูกรวมไว้ด้านล่างและยังไม่เปลี่ยนสต๊อกจนกว่าจะยืนยัน';
+      $('withdrawalStepTitle').textContent = 'สแกนหลายรายการ';
+      $('withdrawalStepLabel').textContent = 'สแกนต่อเนื่อง';
+      $('withdrawalNextBtn').classList.add('hidden');
+      $('withdrawalBackBtn').classList.add('hidden');
+      $('submitTransaction').classList.add('hidden');
+      $('barcodeField').classList.remove('hidden');
+      $('productField').classList.add('hidden');
+      $('quantityField').classList.add('hidden');
+      $('sourceField').classList.add('hidden');
+      $('destinationField').classList.add('hidden');
+      $('notesField').classList.remove('hidden');
+      renderTransactionScanQueue();
+    }
+  }
+
+  $('singleTransactionMode').addEventListener('click', () => {
+    const type=window.__pendingTransactionModeType;
+    if(type)beginTransactionWorkflow(type,false);
+  });
+  $('multiTransactionMode').addEventListener('click', () => {
+    const type=window.__pendingTransactionModeType;
+    if(type)beginTransactionWorkflow(type,true);
+  });
+  $('cancelTransactionMode').addEventListener('click', () => {
+    $('transactionModePanel').classList.add('hidden');
+    $('warehouseMenu').classList.remove('hidden');
+    $('dashboardMetrics').classList.remove('hidden');
+  });
+
   $('warehouseMenu').querySelectorAll('[data-warehouse-action]').forEach(button => {
     button.addEventListener('click', () => {
       const action = button.getAttribute('data-warehouse-action');
@@ -2412,7 +2501,17 @@ $('logoutBtn').addEventListener('click', async () => {
         return;
       }
 
-      if (action === 'OUT' || action === 'IN' || action === 'MOVE') {
+      if (action === 'OUT' || action === 'IN') {
+        window.__pendingTransactionModeType = action;
+        $('transactionModeTitle').textContent = action === 'OUT' ? 'เลือกวิธีเบิกสินค้า' : 'เลือกวิธีรับสินค้าเข้า';
+        $('transactionModeDescription').textContent = action === 'OUT'
+          ? 'เลือกเบิกทีละรายการ หรือสแกนหลายรายการต่อเนื่อง'
+          : 'เลือกรับเข้าทีละรายการ หรือสแกนหลายรายการต่อเนื่อง';
+        showWorkflowPanel('transactionModePanel');
+        return;
+      }
+
+      if (action === 'MOVE') {
         showWorkflowPanel('transactionPanel');
         $('transactionType').value = action;
         // Reset the transaction wizard so every workflow starts fresh.
