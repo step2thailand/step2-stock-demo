@@ -260,6 +260,7 @@
         <button type="button" class="menu-move menu-square" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
         <button type="button" class="menu-products menu-square" data-warehouse-action="PRODUCTS"><span class="menu-title">รายการสินค้า</span><span class="menu-description">ดูสินค้าทั้งหมด</span></button>
         <button type="button" class="menu-add-product menu-square" data-warehouse-action="ADD_PRODUCT"><span class="menu-title">เพิ่มสินค้า (Admin)</span><span class="menu-description">เพิ่มสินค้าใหม่เข้าระบบ</span></button>
+        <button type="button" class="menu-users menu-square hidden" data-warehouse-action="USERS"><span class="menu-title">จัดการผู้ใช้งาน (Admin)</span><span class="menu-description">เพิ่ม / ลบบัญชีพนักงาน</span></button>
         <button type="button" class="menu-receive menu-square" data-warehouse-action="IN"><span class="menu-title">รับสินค้าเข้า</span><span class="menu-description">เพิ่มสต๊อกสินค้า</span></button>
         <button type="button" class="menu-status menu-square" data-warehouse-action="STATUS"><span class="menu-title">จัดการสถานะสินค้า</span><span class="menu-description">พร้อมขาย / จอง / เสียหาย</span></button>
         <button type="button" class="menu-history" data-warehouse-action="HISTORY"><span class="menu-title">ประวัติทำรายการ</span></button>
@@ -641,6 +642,21 @@
           </table>
         </div>
       </div>
+    </section>
+
+    <section class="panel workflow-panel hidden" id="userManagementPanel">
+      <h2>จัดการผู้ใช้งาน</h2>
+      <p class="muted">เพิ่มบัญชีพนักงานด้วย Username และ Password บัญชีใหม่จะเป็นผู้ใช้งานทั่วไป ไม่ใช่ Admin</p>
+      <form id="createUserForm">
+        <div class="form-grid">
+          <div><label for="newUsername">Username</label><input id="newUsername" type="text" minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]+" autocomplete="off" required placeholder="เช่น warehouse01"></div>
+          <div><label for="newUserPassword">Password</label><input id="newUserPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" required placeholder="อย่างน้อย 8 ตัวอักษร"></div>
+        </div>
+        <div class="toolbar"><button id="createUserBtn" type="submit">เพิ่มผู้ใช้งาน</button><button id="refreshUsersBtn" class="secondary" type="button">รีเฟรชรายชื่อ</button></div>
+      </form>
+      <div id="userManagementStatus" class="status" role="status"></div>
+      <h3>บัญชีผู้ใช้งาน</h3>
+      <div class="table-wrap"><table><thead><tr><th>Username</th><th>สร้างเมื่อ</th><th>การจัดการ</th></tr></thead><tbody id="managedUsersRows"><tr><td colspan="3">กำลังโหลด...</td></tr></tbody></table></div>
     </section>
 
     <section class="panel workflow-panel hidden" id="historyPanel">
@@ -1732,6 +1748,7 @@ async function applySession(session) {
 
       if (productManagementSection) productManagementSection.classList.toggle('hidden', !window.isAppAdmin);
       $('warehouseMenu').querySelector('[data-warehouse-action="ADD_PRODUCT"]').classList.toggle('hidden', !window.isAppAdmin);
+      $('warehouseMenu').querySelector('[data-warehouse-action="USERS"]').classList.toggle('hidden', !window.isAppAdmin);
 
       await loadData(version);
       await loadHistory(version);
@@ -1745,6 +1762,7 @@ async function applySession(session) {
 
       if (productManagementSection) productManagementSection.classList.add('hidden');
       $('warehouseMenu').querySelector('[data-warehouse-action="ADD_PRODUCT"]').classList.add('hidden');
+      $('warehouseMenu').querySelector('[data-warehouse-action="USERS"]').classList.add('hidden');
 
       setStatus(
         'loginStatus',
@@ -2105,6 +2123,16 @@ $('logoutBtn').addEventListener('click', async () => {
         resetCatalogWizard();
         // The catalog now starts with brand selection; the legacy catalogSearch field no longer exists.
         $('catalogBrandSelect').focus();
+        return;
+      }
+
+      if (action === 'USERS') {
+        if (!window.isAppAdmin) return;
+        showWorkflowPanel('userManagementPanel');
+        $('createUserForm').reset();
+        setStatus('userManagementStatus', '');
+        loadManagedUsers();
+        $('newUsername').focus();
         return;
       }
 
@@ -2987,6 +3015,83 @@ $('stockStatusForm').addEventListener('submit', async event => {
       navigator.serviceWorker.register('/sw.js').catch(error => console.warn('Service Worker registration failed:', error));
     }, { once: true });
   }
+
+
+  const USER_ADMIN_FUNCTION_URL = SUPABASE_URL + '/functions/v1/manage-users';
+  async function callUserAdmin(payload) {
+    if (!window.isAppAdmin) throw new Error('ต้องเข้าสู่ระบบด้วยบัญชี Admin');
+    const { data, error } = await db.auth.getSession();
+    if (error) throw error;
+    const token = data.session && data.session.access_token;
+    if (!token) throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+    const response = await fetch(USER_ADMIN_FUNCTION_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer ' + token,'apikey':SUPABASE_KEY},
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'ดำเนินการไม่สำเร็จ (' + response.status + ')');
+    return result;
+  }
+
+  async function loadManagedUsers() {
+    const rows = $('managedUsersRows');
+    rows.innerHTML = '<tr><td colspan="3">กำลังโหลด...</td></tr>';
+    try {
+      const result = await callUserAdmin({action:'list'});
+      const users = result.users || [];
+      rows.innerHTML = users.length ? users.map(user => {
+        const username = escapeHtml(user.username || '');
+        const created = user.created_at ? new Date(user.created_at).toLocaleString('th-TH') : '—';
+        return '<tr><td>' + username + (user.id === currentUserId ? ' (บัญชีของคุณ)' : '') + '</td><td>' + escapeHtml(created) + '</td><td>' +
+          (user.id === currentUserId ? '<span class="muted">ไม่สามารถลบบัญชีตัวเอง</span>' : '<button type="button" class="secondary delete-managed-user" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '">ลบผู้ใช้</button>') + '</td></tr>';
+      }).join('') : '<tr><td colspan="3">ไม่พบผู้ใช้งาน</td></tr>';
+    } catch (error) {
+      rows.innerHTML = '<tr><td colspan="3">โหลดรายชื่อไม่สำเร็จ</td></tr>';
+      setStatus('userManagementStatus', error.message, true);
+    }
+  }
+
+  $('createUserForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = $('createUserBtn');
+    const username = $('newUsername').value.trim().toLowerCase();
+    const password = $('newUserPassword').value;
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+      setStatus('userManagementStatus', 'Username ต้องมี 3–32 ตัว ใช้ a-z, 0-9, จุด ขีดกลาง หรือขีดล่าง', true);
+      return;
+    }
+    if (password.length < 8 || password.length > 72) {
+      setStatus('userManagementStatus', 'Password ต้องมี 8–72 ตัวอักษร', true);
+      return;
+    }
+    button.disabled = true;
+    setStatus('userManagementStatus', 'กำลังสร้างบัญชี...');
+    try {
+      await callUserAdmin({action:'create',username,password});
+      $('createUserForm').reset();
+      setStatus('userManagementStatus', 'เพิ่มผู้ใช้งาน ' + username + ' สำเร็จ');
+      await loadManagedUsers();
+    } catch (error) {
+      setStatus('userManagementStatus', error.message, true);
+    } finally { button.disabled = false; }
+  });
+  $('refreshUsersBtn').addEventListener('click', loadManagedUsers);
+  $('managedUsersRows').addEventListener('click', async event => {
+    const button = event.target.closest('.delete-managed-user');
+    if (!button || !window.isAppAdmin) return;
+    const username = button.dataset.username || 'ผู้ใช้นี้';
+    if (!confirm('ยืนยันลบบัญชี ' + username + ' ? บัญชีนี้จะเข้าสู่ระบบไม่ได้อีก')) return;
+    button.disabled = true;
+    try {
+      await callUserAdmin({action:'delete',user_id:button.dataset.userId});
+      setStatus('userManagementStatus', 'ลบบัญชี ' + username + ' สำเร็จ');
+      await loadManagedUsers();
+    } catch (error) {
+      setStatus('userManagementStatus', error.message, true);
+      button.disabled = false;
+    }
+  });
 
   (async function init() {
     const { data, error } = await db.auth.getSession();
