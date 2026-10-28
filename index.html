@@ -577,7 +577,7 @@
 <section id="barcodeManagementPanel" class="panel workflow-panel hidden">
 <h2>จัดการบาร์โค้ดสินค้า</h2><p class="muted">บาร์โค้ดสร้างจาก SKU ตามที่กำหนด โดยไม่เปลี่ยนข้อมูลสต๊อก</p>
 <div class="form-grid"><div><label for="barcodeBrandSelect">แบรนด์สินค้า</label><select id="barcodeBrandSelect"><option value="">เลือกแบรนด์สินค้า</option></select></div><div><label for="barcodeCategorySelect">หมวดหมู่สินค้า</label><select id="barcodeCategorySelect" disabled><option value="">เลือกหมวดหมู่สินค้า</option></select></div></div>
-<div class="toolbar" style="margin-top:12px"><input id="barcodeProductSearch" type="search" placeholder="ค้นหา SKU หรือชื่อสินค้า"><button id="downloadBarcodeSheetBtn" type="button">ดาวน์โหลดฉลากทั้งหมดที่แสดง</button></div>
+<div class="toolbar" style="margin-top:12px"><input id="barcodeProductSearch" type="search" placeholder="ค้นหา SKU หรือชื่อสินค้า"><button id="downloadBarcodeSheetBtn" type="button">ดาวน์โหลดฉลากทั้งหมดที่แสดง</button><button id="syncSkuBarcodeBtn" type="button" class="secondary">เปลี่ยน Barcode ในระบบให้ตรง SKU</button></div><p class="muted">การเปลี่ยนค่า Barcode ในฐานข้อมูลมีผลต่อการสแกนฉลากเดิม โปรดพิมพ์ฉลากใหม่หลังดำเนินการ</p>
 <div id="barcodeManagementStatus" class="status" role="status"></div><div id="barcodeProductGrid" class="barcode-product-grid"></div></section>
 <section id="productManagementSection" class="panel workflow-panel hidden">
 
@@ -3390,6 +3390,34 @@ $('stockStatusForm').addEventListener('submit', async event => {
       barcodeBrandSelect.addEventListener('change',()=>{populateBarcodeCategories();renderBarcodeProducts();});
       barcodeCategorySelect.addEventListener('change',renderBarcodeProducts);
       barcodeProductSearch.addEventListener('input',renderBarcodeProducts);
+      document.getElementById('syncSkuBarcodeBtn').addEventListener('click',async()=>{
+        const rows=productsData.filter(p=>p.is_active!==false);
+        if(!rows.length){setStatus('barcodeManagementStatus','ไม่มีสินค้าให้ปรับปรุง',true);return;}
+        const duplicateSkus=rows.map(p=>String(p.sku||'').trim()).filter((s,i,a)=>!s||a.indexOf(s)!==i);
+        if(duplicateSkus.length){setStatus('barcodeManagementStatus','พบ SKU ว่างหรือซ้ำ จึงหยุดเพื่อป้องกันบาร์โค้ดซ้ำ',true);return;}
+        if(!confirm('ยืนยันเปลี่ยน Barcode ในฐานข้อมูลของสินค้าใช้งานทั้งหมด '+rows.length+' รายการ ให้เท่ากับ SKU? ฉลากเดิมจะไม่ตรงกับบาร์โค้ดใหม่'))return;
+        const btn=document.getElementById('syncSkuBarcodeBtn');btn.disabled=true;
+        try{
+          setStatus('barcodeManagementStatus','กำลังตรวจสอบสิทธิ์และเตรียมปรับปรุง Barcode...');
+          const token=Date.now().toString(36);
+          const staged=[];
+          for(let i=0;i<rows.length;i++){
+            const p=rows[i],temp='TMPBC-'+token+'-'+i;
+            const result=await db.from('products').update({barcode:temp}).eq('id',p.id).select('id');
+            if(result.error||!result.data||!result.data.length)throw new Error(result.error?.message||('ไม่มีสิทธิ์แก้ไขหรือไม่พบสินค้า '+p.sku));
+            staged.push({p,temp});
+          }
+          for(const item of staged){
+            const result=await db.from('products').update({barcode:String(item.p.sku).trim()}).eq('id',item.p.id).select('id');
+            if(result.error||!result.data||!result.data.length)throw new Error(result.error?.message||('อัปเดตไม่สำเร็จที่ SKU '+item.p.sku+'. ติดต่อผู้ดูแลระบบเพื่อตรวจสอบข้อมูล'));
+          }
+          productsData=productsData.map(p=>p.is_active===false?p:{...p,barcode:String(p.sku||'').trim()});
+          renderBarcodeProducts();
+          setStatus('barcodeManagementStatus','อัปเดต Barcode ในฐานข้อมูลให้ตรง SKU แล้ว '+rows.length+' รายการ กรุณาพิมพ์ฉลากใหม่');
+        }catch(err){
+          setStatus('barcodeManagementStatus','หยุดการอัปเดต: '+err.message+' ข้อมูลอาจอัปเดตได้บางส่วน กรุณาแจ้งผู้ดูแลระบบให้ตรวจสอบ Barcode ก่อนใช้งานต่อ',true);
+        }finally{btn.disabled=false;}
+      });
       barcodeGrid.addEventListener('click',e=>{const b=e.target.closest('[data-save-sku-barcode]');if(b){const p=productsData.find(x=>String(x.id)===b.dataset.saveSkuBarcode);if(p)saveSkuBarcode(p);}});
       document.getElementById('downloadBarcodeSheetBtn').addEventListener('click',()=>{
         const rows=barcodeFiltered();if(!rows.length){setStatus('barcodeManagementStatus','ไม่มีสินค้าให้ดาวน์โหลด',true);return;}
