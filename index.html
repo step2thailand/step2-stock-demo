@@ -11,6 +11,7 @@
   <title>WANGANUBAL INVENTORY</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -84,6 +85,16 @@
     .warehouse-menu button .menu-title { font-weight: 700; }
     .warehouse-menu button .menu-description { font-size: 12px; font-weight: 400; opacity: .95; }
     .warehouse-menu button[data-warehouse-action="HISTORY"] { grid-column: 1 / -1; min-height: 58px; }
+    .menu-barcodes { background:#f0e8ff; border-color:#ded0fa; color:#5b4387; }
+    .barcode-product-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; margin-top:14px; }
+    .barcode-product-card { border:1px solid #e5e7eb; border-radius:18px; padding:14px; background:#fff; min-width:0; }
+    .barcode-product-image { width:100%; height:130px; object-fit:contain; border-radius:12px; background:#f8fafc; margin-bottom:10px; }
+    .barcode-image { width:100%; height:70px; object-fit:contain; display:block; margin:8px auto; }
+    .barcode-meta { color:#64748b; font-size:13px; margin:4px 0; overflow-wrap:anywhere; }
+    .barcode-sku { font-weight:800; font-size:16px; overflow-wrap:anywhere; }
+    .barcode-product-name { font-weight:600; margin:5px 0; overflow-wrap:anywhere; }
+    .barcode-actions { display:flex; gap:8px; margin-top:10px; }
+    .barcode-actions button { flex:1; }
     .dashboard-metrics { margin-top: 18px; margin-bottom: 22px; }
     .dashboard-metrics h2 { margin: 0 0 12px; }
     .menu-issue { background: #dc2626; }
@@ -426,6 +437,7 @@
         <button type="button" class="menu-receive menu-square" data-warehouse-action="IN"><span class="menu-title">รับสินค้าเข้า</span><span class="menu-description">เพิ่มสต๊อกสินค้า</span></button>
         <button type="button" class="menu-status menu-square" data-warehouse-action="STATUS"><span class="menu-title">จัดการสถานะสินค้า</span><span class="menu-description">พร้อมขาย / จอง / เสียหาย</span></button>
         <button type="button" class="menu-history" data-warehouse-action="HISTORY"><span class="menu-title">ประวัติทำรายการ</span></button>
+<button type="button" class="menu-barcodes menu-square" data-warehouse-action="BARCODES"><span class="menu-title">จัดการบาร์โค้ดสินค้า</span><span class="menu-description">สร้างและดาวน์โหลดฉลาก</span></button>
       </div>
     </section>
 
@@ -562,6 +574,11 @@
   </div>
 </section>
 
+<section id="barcodeManagementPanel" class="panel workflow-panel hidden">
+<h2>จัดการบาร์โค้ดสินค้า</h2><p class="muted">บาร์โค้ดสร้างจาก SKU ตามที่กำหนด โดยไม่เปลี่ยนข้อมูลสต๊อก</p>
+<div class="form-grid"><div><label for="barcodeBrandSelect">แบรนด์สินค้า</label><select id="barcodeBrandSelect"><option value="">เลือกแบรนด์สินค้า</option></select></div><div><label for="barcodeCategorySelect">หมวดหมู่สินค้า</label><select id="barcodeCategorySelect" disabled><option value="">เลือกหมวดหมู่สินค้า</option></select></div></div>
+<div class="toolbar" style="margin-top:12px"><input id="barcodeProductSearch" type="search" placeholder="ค้นหา SKU หรือชื่อสินค้า"><button id="downloadBarcodeSheetBtn" type="button">ดาวน์โหลดฉลากทั้งหมดที่แสดง</button></div>
+<div id="barcodeManagementStatus" class="status" role="status"></div><div id="barcodeProductGrid" class="barcode-product-grid"></div></section>
 <section id="productManagementSection" class="panel workflow-panel hidden">
 
   <h2>จัดการสินค้า</h2>
@@ -2289,6 +2306,13 @@ $('logoutBtn').addEventListener('click', async () => {
         $('catalogBrandSelect').focus();
         return;
       }
+      if (action === 'BARCODES') {
+        showWorkflowPanel('barcodeManagementPanel');
+        populateBarcodeBrands();
+        renderBarcodeProducts();
+        $('barcodeBrandSelect').focus();
+        return;
+      }
 
       if (action === 'USERS') {
         if (!window.isAppAdmin) return;
@@ -3327,8 +3351,54 @@ $('stockStatusForm').addEventListener('submit', async event => {
     }
   </style>
   <script>
+      const barcodeBrandSelect=document.getElementById('barcodeBrandSelect');
+      const barcodeCategorySelect=document.getElementById('barcodeCategorySelect');
+      const barcodeProductSearch=document.getElementById('barcodeProductSearch');
+      const barcodeGrid=document.getElementById('barcodeProductGrid');
+      function populateBarcodeBrands(){
+        const prev=barcodeBrandSelect.value;
+        barcodeBrandSelect.innerHTML='<option value="">เลือกแบรนด์สินค้า</option>'+Object.keys(CATALOG_BRANDS).map(b=>'<option value="'+escapeHtml(b)+'">'+escapeHtml(b)+' ('+productsData.filter(p=>p.is_active!==false&&catalogBrandMatches(p,b)).length+')</option>').join('');
+        if(prev&&CATALOG_BRANDS[prev]!==undefined)barcodeBrandSelect.value=prev;
+        populateBarcodeCategories();
+      }
+      function populateBarcodeCategories(){
+        const b=barcodeBrandSelect.value,cats=CATALOG_BRANDS[b]||[];
+        barcodeCategorySelect.innerHTML='<option value="">'+(cats.length?'เลือกหมวดหมู่สินค้า':'ทุกหมวดหมู่')+'</option>'+cats.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join('');
+        barcodeCategorySelect.disabled=!b||!cats.length;
+      }
+      function barcodeFiltered(){
+        const b=barcodeBrandSelect.value,cat=barcodeCategorySelect.value,q=barcodeProductSearch.value.trim().toLowerCase();
+        return b?productsData.filter(p=>p.is_active!==false&&catalogBrandMatches(p,b)&&(!cat||catalogCategoryMatches(p,cat))&&(!q||[p.sku,p.product_name,p.barcode].join(' ').toLowerCase().includes(q))).sort((a,b)=>String(a.sku).localeCompare(String(b.sku),undefined,{numeric:true})):[];
+      }
+      function makeSkuBarcode(sku){
+        if(!window.JsBarcode)return '';
+        const el=document.createElementNS('http://www.w3.org/2000/svg','svg');
+        try{JsBarcode(el,String(sku||''),{format:'CODE128',displayValue:true,font:'Arial',fontSize:14,margin:4,height:52});return new XMLSerializer().serializeToString(el);}catch(e){return '';}
+      }
+      function saveSkuBarcode(p){
+        const s=makeSkuBarcode(p.sku);if(!s){setStatus('barcodeManagementStatus','สร้างบาร์โค้ดไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ',true);return;}
+        const u=URL.createObjectURL(new Blob([s],{type:'image/svg+xml;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='barcode-'+String(p.sku).replace(/[^a-zA-Z0-9_-]/g,'_')+'.svg';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+      }
+      function renderBarcodeProducts(){
+        const rows=barcodeFiltered();
+        barcodeGrid.innerHTML=rows.length?rows.map(p=>{
+          const qty=balanceData.filter(b=>b.product_id===p.id).reduce((s,b)=>s+Number(b.quantity||0),0),svg=makeSkuBarcode(p.sku);
+          return '<article class="barcode-product-card">'+(p.image_url?'<img class="barcode-product-image" src="'+escapeHtml(p.image_url)+'" alt="" onerror="this.style.display=\'none\'">':'<div class="barcode-product-image" style="display:grid;place-items:center">ไม่มีรูปสินค้า</div>')+'<div class="barcode-meta">'+escapeHtml(productBrand(p)||'')+' · '+escapeHtml(productCategory(p)||'')+'</div><div class="barcode-sku">รหัสสินค้า: '+escapeHtml(p.sku)+'</div><div class="barcode-product-name">'+escapeHtml(p.product_name)+'</div><div class="barcode-meta">Barcode: SKU ('+escapeHtml(p.sku)+')</div><div class="barcode-meta">จำนวนคงเหลือรวม: <strong>'+qty+'</strong> '+escapeHtml(p.unit||'ชุด')+'</div>'+(svg?'<img class="barcode-image" alt="Barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'">':'')+'<div class="barcode-actions"><button type="button" data-save-sku-barcode="'+escapeHtml(p.id)+'">ดาวน์โหลด SVG</button></div></article>';
+        }).join(''):'<p class="muted">'+(barcodeBrandSelect.value?'ไม่พบสินค้า':'กรุณาเลือกแบรนด์สินค้า')+'</p>';
+        setStatus('barcodeManagementStatus',barcodeBrandSelect.value?'แสดง '+rows.length+' รายการ · สร้างบาร์โค้ดจาก SKU':'กรุณาเลือกแบรนด์สินค้า');
+      }
+      barcodeBrandSelect.addEventListener('change',()=>{populateBarcodeCategories();renderBarcodeProducts();});
+      barcodeCategorySelect.addEventListener('change',renderBarcodeProducts);
+      barcodeProductSearch.addEventListener('input',renderBarcodeProducts);
+      barcodeGrid.addEventListener('click',e=>{const b=e.target.closest('[data-save-sku-barcode]');if(b){const p=productsData.find(x=>String(x.id)===b.dataset.saveSkuBarcode);if(p)saveSkuBarcode(p);}});
+      document.getElementById('downloadBarcodeSheetBtn').addEventListener('click',()=>{
+        const rows=barcodeFiltered();if(!rows.length){setStatus('barcodeManagementStatus','ไม่มีสินค้าให้ดาวน์โหลด',true);return;}
+        const html='<!doctype html><html><head><meta charset="utf-8"><title>Barcode Labels</title><style>body{font-family:Arial;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.label{text-align:center;border:1px dashed #bbb;padding:8px;break-inside:avoid}.product{height:55px;max-width:100%;object-fit:contain}.barcode{width:100%;height:60px;object-fit:contain}@media print{@page{margin:5mm}.label{border:0}}</style></head><body>'+rows.map(p=>'<div class="label">'+(p.image_url?'<img class="product" src="'+escapeHtml(p.image_url)+'">':'')+'<div>'+escapeHtml(p.product_name)+'</div><strong>'+escapeHtml(p.sku)+'</strong><br><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(makeSkuBarcode(p.sku))+'"><div>คงเหลือ '+balanceData.filter(b=>b.product_id===p.id).reduce((s,b)=>s+Number(b.quantity||0),0)+'</div></div>').join('')+'</body></html>';
+        const u=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='barcode-labels.html';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);setStatus('barcodeManagementStatus','ดาวน์โหลดไฟล์ฉลากแล้ว เปิดไฟล์ HTML เพื่อพิมพ์');
+      });
     (function(){
       const paths = {
+        barcode:'<path d="M3 5v14M6 5v14M10 5v14M12 5v14M16 5v14M19 5v14M21 5v14"/>',
         packageMinus:'<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3.3 7.6 12 12l8.7-4.4M12 12v9M8 5l9 4.5M8 12h8"/>',
         scanSearch:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="10.5" cy="10.5" r="3.5"/><path d="m13.2 13.2 3 3"/>',
         move:'<path d="M5 7h14M15 3l4 4-4 4M19 17H5M9 13l-4 4 4 4"/>',
@@ -3362,7 +3432,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
       }
       function decorate(){
         document.querySelectorAll('.warehouse-menu button[data-warehouse-action]').forEach(el=>{
-          const map={OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history'};
+          const map={OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history',BARCODES:'barcode'};
           const title=el.querySelector('.menu-title');
           if(title && !el.querySelector(':scope > svg.menu-icon')) {
             title.insertAdjacentHTML('beforebegin',svg(map[el.dataset.warehouseAction]||'boxes','menu-icon'));
