@@ -138,6 +138,44 @@
     #historyPanel .toolbar { align-items: stretch; }
     #historyPanel .toolbar input, #historyPanel .toolbar select, #historyPanel .toolbar button { width: 100%; min-width: 0; }
   }
+
+  @media (max-width:700px) {
+    /* User management: stack each account into a compact card on phones. */
+    #userManagementPanel .table-wrap { overflow:visible; width:100%; }
+    #userManagementPanel table { width:100%; min-width:0; border-collapse:separate; border-spacing:0; }
+    #userManagementPanel thead { display:none; }
+    #userManagementPanel table,
+    #userManagementPanel tbody,
+    #userManagementPanel tr,
+    #userManagementPanel td { display:block; width:100%; min-width:0; }
+    #userManagementPanel tbody tr {
+      border:1px solid #e2e8f0; border-radius:10px; margin:0 0 10px;
+      padding:8px 10px; background:#fff; overflow:hidden;
+    }
+    #userManagementPanel tbody td {
+      display:grid; grid-template-columns:minmax(0, 30%) minmax(0, 1fr);
+      gap:8px; padding:7px 0; border-bottom:1px solid #f1f5f9;
+      overflow-wrap:anywhere; word-break:break-word;
+    }
+    #userManagementPanel tbody td:last-child { border-bottom:0; }
+    #userManagementPanel tbody td:nth-child(1)::before { content:"Username"; font-weight:600; color:#64748b; }
+    #userManagementPanel tbody td:nth-child(2)::before { content:"สร้างเมื่อ"; font-weight:600; color:#64748b; }
+    #userManagementPanel tbody td:nth-child(3)::before { content:"การจัดการ"; font-weight:600; color:#64748b; }
+    #userManagementPanel tbody td[colspan] { display:block; }
+    #userManagementPanel tbody td[colspan]::before { content:none; }
+    #userManagementPanel .managed-user-actions {
+      display:flex !important; flex-direction:column; align-items:stretch;
+      gap:6px !important; min-width:0; width:100%;
+    }
+    #userManagementPanel .managed-user-actions button {
+      display:block; width:100% !important; max-width:100%; min-width:0;
+      padding:9px 8px; font-size:13px; line-height:1.25;
+      white-space:normal; overflow-wrap:anywhere;
+    }
+    #userManagementPanel .toolbar { align-items:stretch; }
+    #userManagementPanel .toolbar button { width:100%; min-width:0; }
+  }
+
   .product-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
   .product-card { border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#fff; min-width:0; }
   .product-card img { width:100%; height:150px; object-fit:contain; background:#f8fafc; border-radius:8px; }
@@ -3048,7 +3086,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
         const isSelf = user.id === currentUserId;
         const actionButtons = isSelf
           ? '<span class="muted">บัญชี Admin ปัจจุบัน</span>'
-          : '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+          : '<div class="managed-user-actions" style="display:flex;gap:6px;flex-wrap:wrap;">' +
             '<button type="button" class="secondary edit-managed-user" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '">แก้ไข Username</button>' +
             '<button type="button" class="secondary reset-managed-password" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '">ตั้งรหัสผ่านใหม่</button>' +
             '<button type="button" class="delete-managed-user" data-user-id="' + escapeHtml(user.id) + '" data-username="' + username + '" style="background:#b91c1c;">ลบผู้ใช้</button></div>';
