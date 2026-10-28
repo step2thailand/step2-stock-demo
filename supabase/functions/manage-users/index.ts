@@ -96,6 +96,21 @@ Deno.serve(async (req: Request) => {
     if (!target.email?.endsWith("@step2-stock-demo.invalid")) {
       return json({ error: "ลบได้เฉพาะบัญชี Username ของ WANGANUBAL INVENTORY" }, 400);
     }
+
+    // Fail closed if role lookup fails, and never allow an Admin account to be deleted here.
+    const { data: targetAdmin, error: targetRoleError } = await adminClient
+      .from("app_roles")
+      .select("user_id")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (targetRoleError) {
+      return json({ error: "ตรวจสอบสิทธิ์ของบัญชีเป้าหมายไม่สำเร็จ จึงยกเลิกการลบ" }, 500);
+    }
+    if (targetAdmin) {
+      return json({ error: "ไม่อนุญาตให้ลบบัญชี Admin ผ่านเมนูนี้" }, 403);
+    }
+
     const { error } = await adminClient.auth.admin.deleteUser(userId);
     if (error) return json({ error: "ลบบัญชีไม่สำเร็จ: " + error.message }, 400);
     return json({ success: true });
