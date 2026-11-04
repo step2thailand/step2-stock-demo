@@ -57,7 +57,8 @@
    if(!no)warnings.push('ไม่พบเลขที่เอกสารชัดเจน กรุณาตรวจสอบและกรอกเอง');
    if(!items.length)warnings.push('ไม่สามารถแยกรายการสินค้าได้จาก PDF นี้');
    if(reservation&&/รับเอง/.test(all)&&/Flash Express|ขนส่ง/i.test(all))warnings.push('ข้อมูลวิธีจัดส่งขัดแย้งกัน: ช่องวิธีจัดส่งระบุ “รับเอง” แต่หมายเหตุระบุ Flash Express กรุณาตรวจสอบ');
-   if(items.some(x=>x.sku==='4/2'))warnings.push('พบ SKU 4/2 ซึ่งเป็นค่าบริการ ไม่ควรนับเป็นสินค้าในคลัง');\n   if(no&&seenDocumentNumbers.has(no))warnings.push('พบเลขที่เอกสารนี้ซ้ำกับไฟล์ที่อ่านไปแล้วในรอบการใช้งานนี้');
+   if(items.some(x=>x.sku==='4/2'))warnings.push('พบ SKU 4/2 ซึ่งเป็นค่าบริการ ไม่ควรนับเป็นสินค้าในคลัง');
+   if(no&&seenDocumentNumbers.has(no))warnings.push('พบเลขที่เอกสารนี้ซ้ำกับไฟล์ที่อ่านไปแล้วในรอบการใช้งานนี้');
    return {type:quote?'QUOTATION':reservation?'RESERVATION':'UNKNOWN',number:no,date:toISO(dates[0]),dueDate:reservation?toISO(dates[1]):'',expiryDate:reservation?toISO(dates[2]):'',delivery,leadDays:day[1]||day[2]||'',validDays:validity[1]||validity[2]||'',items,warnings,rawText:text};
  }
  function render(result){
