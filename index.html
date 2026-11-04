@@ -395,6 +395,12 @@
       .warehouse-menu button { border-radius:24px; }
     }
 
+  .menu-dispatch { background:#1d4ed8; }
+  #dispatchPanel .dispatch-line-card { border:1px solid #dbe3ee; border-radius:12px; padding:12px; margin:10px 0; background:#fff; }
+  #dispatchPanel .dispatch-line-card .dispatch-actions { display:flex; gap:8px; align-items:end; margin-top:10px; }
+  #dispatchPanel .dispatch-line-card .dispatch-actions input { flex:1; min-width:0; }
+  #dispatchPanel .dispatch-line-card .dispatch-actions button { flex:1; min-height:44px; }
+  @media(max-width:700px){#dispatchPanel .dispatch-line-card .dispatch-actions{display:grid;grid-template-columns:1fr}}
   .menu-picking { background:#0f766e; }
     #pickingPanel .picking-line-card { border:1px solid #dbe3ee; border-radius:12px; padding:12px; margin:10px 0; background:#fff; }
     #pickingPanel .picking-line-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
@@ -437,6 +443,7 @@
       <h2>เมนูงานคลังสินค้า</h2>
       <div class="warehouse-menu-grid">
         <button type="button" class="menu-picking menu-square" data-warehouse-action="PICKING"><span class="menu-title">งานจัดสินค้า</span><span class="menu-description">จัดของตามใบจอง / พักรอส่ง</span></button>
+        <button type="button" class="menu-dispatch menu-square" data-warehouse-action="DISPATCH"><span class="menu-title">ส่งมอบสินค้า</span><span class="menu-description">ยืนยันส่งออกจากจุดพักสินค้า</span></button>
         <button type="button" class="menu-issue menu-square" data-warehouse-action="OUT"><span class="menu-title">เบิกสินค้า</span><span class="menu-description">ตัดสต๊อกสินค้า</span></button>
         <button type="button" class="menu-stock menu-square" data-warehouse-action="STOCK"><span class="menu-title">ตรวจสอบสต๊อก</span><span class="menu-description">ตรวจสอบยอดคงเหลือ</span></button>
         <button type="button" class="menu-move menu-square" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
@@ -489,6 +496,24 @@
         <div id="pickingWorkLines"></div>
         <div class="withdrawal-wizard-actions"><button type="button" class="secondary" id="pickingWorkBackBtn">กลับใบงาน</button></div>
         <div id="pickingWorkStatus" class="status" role="status"></div>
+      </div>
+    </section>
+
+    <section class="panel workflow-panel hidden" id="dispatchPanel">
+      <h2>ส่งมอบสินค้า (Dispatch)</h2>
+      <p class="muted">ยืนยันส่งมอบสินค้าจาก STAGING เมื่อตรวจสอบการส่งมอบแล้ว ระบบจึงตัดยอดสินค้าจริงและบันทึกประวัติ</p>
+      <div id="dispatchHomeStep">
+        <div class="toolbar">
+          <button type="button" class="secondary" id="dispatchRefreshBtn">รีเฟรชใบงานพร้อมส่ง</button>
+        </div>
+        <div id="dispatchTaskList"><p class="muted">กำลังโหลดใบงาน...</p></div>
+        <div id="dispatchHomeStatus" class="status" role="status"></div>
+      </div>
+      <div id="dispatchWorkStep" class="hidden">
+        <div class="withdrawal-wizard-header"><strong id="dispatchTaskTitle">ตรวจสอบรายการส่งมอบ</strong><span class="withdrawal-step-label">ยืนยันทีละรายการ</span></div>
+        <div id="dispatchWorkLines"></div>
+        <div class="withdrawal-wizard-actions"><button type="button" class="secondary" id="dispatchWorkBackBtn">กลับรายการใบงาน</button></div>
+        <div id="dispatchWorkStatus" class="status" role="status"></div>
       </div>
     </section>
 
@@ -3722,7 +3747,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
       }
       function decorate(){
         document.querySelectorAll('.warehouse-menu button[data-warehouse-action]').forEach(el=>{
-          const map={PICKING:'boxes',OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history',BARCODES:'barcode',PICKING:'boxes'};
+          const map={DISPATCH:'packageCheck',PICKING:'boxes',OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history',BARCODES:'barcode',PICKING:'boxes'};
           const title=el.querySelector('.menu-title');
           if(title && !el.querySelector(':scope > svg.menu-icon')) {
             title.insertAdjacentHTML('beforebegin',svg(map[el.dataset.warehouseAction]||'boxes','menu-icon'));
@@ -3818,5 +3843,67 @@ $('stockStatusForm').addEventListener('submit', async event => {
  $('pickingWorkBackBtn').addEventListener('click',async()=>{step('pickingHomeStep');await refresh();});
 })();
 </script>
+
+<script>
+(function(){
+ const $=id=>document.getElementById(id);
+ let task=null,lines=[],events=[];
+ const stage=()=>locationsData.find(l=>String(l.location_code).toUpperCase()==='STAGING'&&l.is_active!==false);
+ const product=id=>productsData.find(p=>p.id===id);
+ const msg=(id,t,err=false)=>{const el=$(id);if(!el)return;el.textContent=t;el.className='status '+(err?'error':'success');};
+ const dispatched=lineId=>events.filter(e=>e.task_line_id===lineId).reduce((n,e)=>n+Number(e.quantity||0),0);
+ const stagingQty=productId=>{const st=stage();if(!st)return 0;const b=balanceData.find(x=>x.product_id===productId&&x.location_id===st.id);return Math.max(0,Number(b?.quantity||0)-Number(b?.reserved_quantity||0)-Number(b?.damaged_quantity||0));};
+ async function refresh(){
+  $('dispatchTaskList').innerHTML='<p class="muted">กำลังโหลด...</p>';
+  const {data,error}=await db.from('pick_tasks').select('*').eq('status','READY').order('created_at',{ascending:false}).limit(100);
+  if(error){$('dispatchTaskList').innerHTML='';msg('dispatchHomeStatus','ยังไม่พร้อมใช้งาน: '+error.message+' · ตรวจสอบว่าได้ติดตั้ง Migration Dispatch แล้ว',true);return;}
+  $('dispatchTaskList').innerHTML=data?.length?data.map(t=>'<article class="dispatch-line-card"><strong>'+escapeHtml(t.source_document_no)+'</strong><span class="picking-tag">พร้อมส่งมอบ</span><p class="muted">'+new Date(t.created_at).toLocaleString('th-TH')+'</p><button type="button" data-dispatch-open="'+t.id+'">ตรวจสอบและส่งมอบ</button></article>').join(''):'<p class="muted">ไม่มีใบงานที่พร้อมส่งมอบ</p>';
+ }
+ async function openTask(id){
+  const a=await db.from('pick_tasks').select('*').eq('id',id).single();
+  if(a.error){msg('dispatchHomeStatus',a.error.message,true);return;}
+  if(a.data.status!=='READY'){msg('dispatchHomeStatus','ใบงานนี้ไม่ได้อยู่ในสถานะพร้อมส่งมอบ กรุณารีเฟรชรายการ',true);await refresh();return;}
+  const b=await db.from('pick_task_lines').select('*').eq('task_id',id).order('created_at');
+  if(b.error){msg('dispatchHomeStatus',b.error.message,true);return;}
+  task=a.data;lines=b.data||[];
+  const ids=lines.map(l=>l.id);
+  if(ids.length){
+   const c=await db.from('pick_task_dispatch_events').select('*').in('task_line_id',ids).order('created_at');
+   if(c.error){msg('dispatchHomeStatus','ยังไม่พร้อมใช้งาน: '+c.error.message+' · ตรวจสอบ Migration Dispatch',true);return;}
+   events=c.data||[];
+  }else events=[];
+  renderWork();$('dispatchHomeStep').classList.add('hidden');$('dispatchWorkStep').classList.remove('hidden');
+ }
+ function renderWork(){
+  $('dispatchTaskTitle').textContent='ใบงาน '+task.source_document_no+' · จุดพัก STAGING';
+  $('dispatchWorkLines').innerHTML=lines.map(l=>{
+   const p=product(l.product_id),sent=dispatched(l.id),pending=Math.max(0,Number(l.picked_quantity||0)-sent),staged=stagingQty(l.product_id),max=Math.min(pending,staged);
+   let action=pending<=0?'<p class="success">ส่งมอบครบตามจำนวนที่จัดแล้ว</p>':max<=0?'<p class="error">ไม่พบสินค้าพร้อมส่งใน STAGING กรุณาตรวจสอบยอดสต๊อก</p>':'<div class="dispatch-actions"><div style="flex:1"><label for="dispatchQty-'+l.id+'">จำนวนส่งมอบ (ชุด)</label><input id="dispatchQty-'+l.id+'" type="number" min="1" max="'+max+'" step="1" inputmode="numeric" value="'+max+'"></div><button type="button" data-dispatch-line="'+l.id+'">ยืนยันส่งมอบ</button></div>';
+   return '<article class="dispatch-line-card"><b>'+escapeHtml(p?.sku||'')+' — '+escapeHtml(p?.product_name||'')+'</b><p class="muted">จัดเข้าพัก '+Number(l.picked_quantity||0)+' · ส่งมอบแล้ว '+sent+' · รอส่ง '+pending+' ชุด</p><p class="muted">STAGING พร้อมส่ง (รวม SKU) '+staged+' ชุด</p>'+action+'</article>';
+  }).join('');
+ }
+ async function dispatchLine(id){
+  const l=lines.find(x=>x.id===id),qty=Number($('dispatchQty-'+id)?.value),sent=l?dispatched(l.id):0,pending=l?Number(l.picked_quantity||0)-sent:0,staged=l?stagingQty(l.product_id):0;
+  if(!l||task?.status!=='READY'||!Number.isInteger(qty)||qty<1||qty>pending||qty>staged){msg('dispatchWorkStatus','ตรวจสอบจำนวนส่งมอบและยอดใน STAGING อีกครั้ง',true);return;}
+  const p=product(l.product_id);
+  if(!window.confirm('ยืนยันส่งมอบสินค้าออกจาก STAGING?\\n\\n'+(p?.sku||'')+' — '+(p?.product_name||'')+'\\nจำนวน '+qty+' ชุด\\nใบงาน '+task.source_document_no+'\\n\\nการยืนยันนี้จะตัดยอดสินค้าจริงออกจากคลัง'))return;
+  const btn=document.querySelector('[data-dispatch-line="'+id+'"]');if(btn)btn.disabled=true;
+  try{
+   const {error}=await db.rpc('dispatch_pick_task_line',{p_idempotency_key:createIdempotencyKey('dispatch'),p_task_line_id:id,p_quantity:qty,p_notes:'Dispatch '+task.source_document_no});
+   if(error)throw error;
+   msg('dispatchWorkStatus','บันทึกส่งมอบ '+qty+' ชุดสำเร็จ กำลังรีเฟรชข้อมูล');
+   await refreshAll();
+   $('dispatchWorkStep').classList.add('hidden');$('dispatchHomeStep').classList.remove('hidden');task=null;lines=[];events=[];await refresh();
+  }catch(e){msg('dispatchWorkStatus','ส่งมอบไม่สำเร็จ: '+e.message,true);if(btn)btn.disabled=false;}
+ }
+ const tile=document.querySelector('[data-warehouse-action="DISPATCH"]');
+ tile?.addEventListener('click',async e=>{e.stopImmediatePropagation();showWorkflowPanel('dispatchPanel');$('dispatchHomeStep').classList.remove('hidden');$('dispatchWorkStep').classList.add('hidden');msg('dispatchHomeStatus','');await refreshAll();await refresh();},true);
+ $('dispatchRefreshBtn').addEventListener('click',async()=>{await refreshAll();await refresh();});
+ $('dispatchTaskList').addEventListener('click',e=>{const b=e.target.closest('[data-dispatch-open]');if(b)openTask(b.dataset.dispatchOpen);});
+ $('dispatchWorkLines').addEventListener('click',e=>{const b=e.target.closest('[data-dispatch-line]');if(b)dispatchLine(b.dataset.dispatchLine);});
+ $('dispatchWorkBackBtn').addEventListener('click',async()=>{$('dispatchWorkStep').classList.add('hidden');$('dispatchHomeStep').classList.remove('hidden');task=null;lines=[];events=[];await refresh();});
+})();
+</script>
+
 </body>
 </html>
