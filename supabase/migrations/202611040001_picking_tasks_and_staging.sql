@@ -126,7 +126,7 @@ BEGIN
   IF p_source_document_no IS NULL OR btrim(p_source_document_no) = '' THEN
     RAISE EXCEPTION 'Source document number is required';
   END IF;
-  IF jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
     RAISE EXCEPTION 'At least one picking line is required';
   END IF;
 
@@ -213,6 +213,20 @@ BEGIN
   WHERE id = p_task_line_id
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Picking task line not found'; END IF;
+
+  -- Recheck after acquiring the line lock: concurrent retries with the same
+  -- idempotency key must return the original transaction, not attempt a second move.
+  SELECT * INTO v_existing
+  FROM public.pick_task_move_events
+  WHERE idempotency_key = p_idempotency_key;
+  IF FOUND THEN
+    IF v_existing.task_line_id <> p_task_line_id
+       OR v_existing.from_location_id <> p_from_location_id
+       OR v_existing.quantity <> p_quantity THEN
+      RAISE EXCEPTION 'Idempotency key reused with different picking data';
+    END IF;
+    RETURN v_existing.stock_transaction_id;
+  END IF;
 
   SELECT * INTO v_task FROM public.pick_tasks WHERE id = v_line.task_id FOR UPDATE;
   IF NOT FOUND OR v_task.status IN ('CANCELLED', 'CLOSED') THEN
