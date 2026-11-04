@@ -3733,10 +3733,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
           const p=productsData.find(x=>String(x.id)===pr.dataset.printSkuBarcode);if(!p)return;
           const svg=makeSkuBarcode(p.sku);if(!svg){setStatus('barcodeManagementStatus','สร้างบาร์โค้ดไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ',true);return;}
           const w=window.open('','_blank');if(!w){setStatus('barcodeManagementStatus','เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่',true);return;}
-          w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Barcode '+escapeHtml(p.sku)+'</title><style>body{font-family:Arial,sans-serif;margin:10mm}.label{width:75mm;max-width:100%;text-align:center;padding:4mm;box-sizing:border-box}.barcode{width:100%;height:22mm;object-fit:contain}.product-name{margin-bottom:3mm;font-size:12pt}.sku{font-weight:bold;font-size:14pt;margin-bottom:2mm}@media print{@page{margin:5mm}}</style></head><body><div class="label"><div class="sku">'+escapeHtml(p.sku)+'</div><div class="product-name">'+escapeHtml(p.product_name||'')+'</div><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'"></div><script>window.onload=()=>window.print()<\\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="./document-import.js"></script>
-</body>
-</body></html>');
+          w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Barcode '+escapeHtml(p.sku)+'</title><style>body{font-family:Arial,sans-serif;margin:10mm}.label{width:75mm;max-width:100%;text-align:center;padding:4mm;box-sizing:border-box}.barcode{width:100%;height:22mm;object-fit:contain}.product-name{margin-bottom:3mm;font-size:12pt}.sku{font-weight:bold;font-size:14pt;margin-bottom:2mm}@media print{@page{margin:5mm}}</style></head><body><div class="label"><div class="sku">'+escapeHtml(p.sku)+'</div><div class="product-name">'+escapeHtml(p.product_name||'')+'</div><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'"></div><script>window.onload=()=>window.print()<\\/script></body></html>');
           w.document.close();
         }
       });
@@ -3938,6 +3935,9 @@ $('stockStatusForm').addEventListener('submit', async event => {
  $('dispatchWorkBackBtn').addEventListener('click',async()=>{$('dispatchWorkStep').classList.add('hidden');$('dispatchHomeStep').classList.remove('hidden');task=null;lines=[];events=[];await refresh();});
 })();
 </script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="./document-import.js"></script>
 
 </body>
 </html>
