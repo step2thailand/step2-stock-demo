@@ -395,6 +395,13 @@
       .warehouse-menu button { border-radius:24px; }
     }
 
+  .menu-picking { background:#0f766e; }
+    #pickingPanel .picking-line-card { border:1px solid #dbe3ee; border-radius:12px; padding:12px; margin:10px 0; background:#fff; }
+    #pickingPanel .picking-line-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    #pickingPanel .picking-stock-option { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+    #pickingPanel .picking-stock-option button { min-height:44px; }
+    #pickingPanel .picking-tag { display:inline-block; border-radius:999px; padding:4px 9px; background:#e0f2fe; color:#075985; font-size:12px; }
+    @media(max-width:700px){#pickingPanel .picking-stock-option{grid-template-columns:1fr}#pickingPanel .picking-line-head{display:block}}
   </style>
 </head>
 <body>
@@ -429,6 +436,7 @@
     <section class="panel warehouse-menu" id="warehouseMenu">
       <h2>เมนูงานคลังสินค้า</h2>
       <div class="warehouse-menu-grid">
+        <button type="button" class="menu-picking menu-square" data-warehouse-action="PICKING"><span class="menu-title">งานจัดสินค้า</span><span class="menu-description">จัดของตามใบจอง / พักรอส่ง</span></button>
         <button type="button" class="menu-issue menu-square" data-warehouse-action="OUT"><span class="menu-title">เบิกสินค้า</span><span class="menu-description">ตัดสต๊อกสินค้า</span></button>
         <button type="button" class="menu-stock menu-square" data-warehouse-action="STOCK"><span class="menu-title">ตรวจสอบสต๊อก</span><span class="menu-description">ตรวจสอบยอดคงเหลือ</span></button>
         <button type="button" class="menu-move menu-square" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
@@ -439,6 +447,48 @@
         <button type="button" class="menu-status menu-square" data-warehouse-action="STATUS"><span class="menu-title">จัดการสถานะสินค้า</span><span class="menu-description">พร้อมขาย / จอง / เสียหาย</span></button>
         <button type="button" class="menu-history" data-warehouse-action="HISTORY"><span class="menu-title">ประวัติทำรายการ</span></button>
 <button type="button" class="menu-barcodes menu-square" data-warehouse-action="BARCODES"><span class="menu-title">จัดการบาร์โค้ดสินค้า</span><span class="menu-description">สร้างและดาวน์โหลดฉลาก</span></button>
+      </div>
+    </section>
+
+    <section class="panel workflow-panel hidden" id="pickingPanel">
+      <h2>งานจัดสินค้า (Picking)</h2>
+      <p class="muted">สร้างใบงานจากใบจอง แล้วจัดสินค้าเข้าจุดพัก STAGING โดยไม่ตัดยอดสินค้าจริงออกจากคลัง</p>
+      <div id="pickingSetupWarning" class="transaction-preview hidden"></div>
+      <div id="pickingHomeStep">
+        <div class="toolbar">
+          <button type="button" id="pickingNewTaskBtn">＋ สร้างใบงานจัดสินค้า</button>
+          <button type="button" class="secondary" id="pickingRefreshBtn">รีเฟรชใบงาน</button>
+        </div>
+        <div id="pickingTaskList"><p class="muted">กำลังโหลดใบงาน...</p></div>
+        <div id="pickingHomeStatus" class="status" role="status"></div>
+      </div>
+      <div id="pickingCreateStep" class="hidden">
+        <div class="withdrawal-wizard-header"><strong>ขั้นตอน 1: ระบุเอกสารใบจอง</strong><span class="withdrawal-step-label">1 / 3</span></div>
+        <div class="form-grid">
+          <div><label for="pickingDocNo">เลขที่ใบจอง / เอกสารต้นทาง</label><input id="pickingDocNo" maxlength="100" placeholder="เช่น RSV-2026-0001"></div>
+          <div><label for="pickingNotes">หมายเหตุ (ถ้ามี)</label><input id="pickingNotes" maxlength="250" placeholder="เช่น ลูกค้านัดรับวันศุกร์"></div>
+        </div>
+        <div class="withdrawal-wizard-actions"><button type="button" class="secondary" id="pickingCreateCancelBtn">ยกเลิก</button><button type="button" id="pickingDocNextBtn">ถัดไป</button></div>
+      </div>
+      <div id="pickingLinesStep" class="hidden">
+        <div class="withdrawal-wizard-header"><strong>ขั้นตอน 2: เพิ่มสินค้าในใบงาน</strong><span class="withdrawal-step-label">2 / 3</span></div>
+        <label for="pickingProductSearch">ค้นหาด้วย SKU / ชื่อสินค้า / Barcode</label>
+        <input id="pickingProductSearch" autocomplete="off" placeholder="พิมพ์ SKU หรือสแกนบาร์โค้ด">
+        <div id="pickingProductResults" class="product-picker-results hidden"></div>
+        <div id="pickingSelectedProduct" class="selected-product-preview hidden"></div>
+        <div class="form-grid" style="margin-top:12px">
+          <div><label for="pickingLineQty">จำนวนที่ต้องจัด (ชุด)</label><input id="pickingLineQty" type="number" min="1" step="1" inputmode="numeric" placeholder="จำนวน"></div>
+        </div>
+        <div class="withdrawal-wizard-actions"><button type="button" class="secondary" id="pickingLinesBackBtn">ย้อนกลับ</button><button type="button" id="pickingAddLineBtn">เพิ่มรายการ</button></div>
+        <div id="pickingDraftLines" class="transaction-preview"><strong>รายการในใบงาน</strong><div id="pickingDraftLineList" class="muted">ยังไม่มีสินค้า</div></div>
+        <div class="withdrawal-wizard-actions"><button type="button" class="secondary" id="pickingDraftCancelBtn">ยกเลิก</button><button type="button" id="pickingCreateSubmitBtn">บันทึกใบงาน</button></div>
+        <div id="pickingCreateStatus" class="status" role="status"></div>
+      </div>
+      <div id="pickingWorkStep" class="hidden">
+        <div class="withdrawal-wizard-header"><strong id="pickingWorkTitle">ขั้นตอน 3: จัดสินค้าเข้าจุดพัก</strong><span class="withdrawal-step-label">3 / 3</span></div>
+        <div id="pickingWorkLines"></div>
+        <div class="withdrawal-wizard-actions"><button type="button" class="secondary" id="pickingWorkBackBtn">กลับใบงาน</button></div>
+        <div id="pickingWorkStatus" class="status" role="status"></div>
       </div>
     </section>
 
@@ -3626,7 +3676,8 @@ $('stockStatusForm').addEventListener('submit', async event => {
           const p=productsData.find(x=>String(x.id)===pr.dataset.printSkuBarcode);if(!p)return;
           const svg=makeSkuBarcode(p.sku);if(!svg){setStatus('barcodeManagementStatus','สร้างบาร์โค้ดไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ',true);return;}
           const w=window.open('','_blank');if(!w){setStatus('barcodeManagementStatus','เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่',true);return;}
-          w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Barcode '+escapeHtml(p.sku)+'</title><style>body{font-family:Arial,sans-serif;margin:10mm}.label{width:75mm;max-width:100%;text-align:center;padding:4mm;box-sizing:border-box}.barcode{width:100%;height:22mm;object-fit:contain}.product-name{margin-bottom:3mm;font-size:12pt}.sku{font-weight:bold;font-size:14pt;margin-bottom:2mm}@media print{@page{margin:5mm}}</style></head><body><div class="label"><div class="sku">'+escapeHtml(p.sku)+'</div><div class="product-name">'+escapeHtml(p.product_name||'')+'</div><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'"></div><script>window.onload=()=>window.print()<\\/script></body></html>');
+          w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Barcode '+escapeHtml(p.sku)+'</title><style>body{font-family:Arial,sans-serif;margin:10mm}.label{width:75mm;max-width:100%;text-align:center;padding:4mm;box-sizing:border-box}.barcode{width:100%;height:22mm;object-fit:contain}.product-name{margin-bottom:3mm;font-size:12pt}.sku{font-weight:bold;font-size:14pt;margin-bottom:2mm}@media print{@page{margin:5mm}}</style></head><body><div class="label"><div class="sku">'+escapeHtml(p.sku)+'</div><div class="product-name">'+escapeHtml(p.product_name||'')+'</div><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'"></div><script>window.onload=()=>window.print()<\\/script></body>
+</body></html>');
           w.document.close();
         }
       });
@@ -3671,7 +3722,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
       }
       function decorate(){
         document.querySelectorAll('.warehouse-menu button[data-warehouse-action]').forEach(el=>{
-          const map={OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history',BARCODES:'barcode'};
+          const map={PICKING:'boxes',OUT:'packageMinus',STOCK:'scanSearch',MOVE:'move',PRODUCTS:'boxes',ADD_PRODUCT:'packagePlus',USERS:'users',IN:'packageCheck',STATUS:'check',HISTORY:'history',BARCODES:'barcode',PICKING:'boxes'};
           const title=el.querySelector('.menu-title');
           if(title && !el.querySelector(':scope > svg.menu-icon')) {
             title.insertAdjacentHTML('beforebegin',svg(map[el.dataset.warehouseAction]||'boxes','menu-icon'));
@@ -3694,5 +3745,78 @@ $('stockStatusForm').addEventListener('submit', async event => {
     })();
   </script>
 
+<script>
+(function(){
+ const $=id=>document.getElementById(id);let draft=[],chosen=null,task=null,lines=[];
+ const step=id=>['pickingHomeStep','pickingCreateStep','pickingLinesStep','pickingWorkStep'].forEach(x=>$(x).classList.toggle('hidden',x!==id));
+ const prod=id=>productsData.find(p=>p.id===id);
+ const stage=()=>locationsData.find(l=>String(l.location_code).toUpperCase()==='STAGING');
+ const msg=(id,t,err=false)=>{ $(id).textContent=t;$(id).className='status '+(err?'error':'success'); };
+ const avail=(pid,lid)=>{const b=balanceData.find(x=>x.product_id===pid&&x.location_id===lid);return b?Math.max(0,+b.quantity-(+b.reserved_quantity||0)-(+b.damaged_quantity||0)):0;};
+ async function refresh(){
+  $('pickingTaskList').innerHTML='<p class="muted">กำลังโหลด...</p>';
+  const {data,error}=await db.from('pick_tasks').select('*').order('created_at',{ascending:false}).limit(50);
+  if(error){$('pickingTaskList').innerHTML='';msg('pickingHomeStatus','ยังไม่พร้อมใช้งาน: '+error.message+' · ตรวจสอบว่ารัน Migration Picking แล้ว',true);return;}
+  $('pickingTaskList').innerHTML=data?.length?data.map(t=>'<article class="picking-line-card"><strong>'+escapeHtml(t.source_document_no)+'</strong><span class="picking-tag">'+escapeHtml(({PENDING:'รอจัด',IN_PROGRESS:'กำลังจัด',READY:'จัดครบแล้ว',CANCELLED:'ยกเลิก',CLOSED:'ปิดงาน'})[t.status]||t.status)+'</span><p class="muted">'+new Date(t.created_at).toLocaleString('th-TH')+'</p><button type="button" data-pick-open="'+t.id+'">เปิดใบงาน</button></article>').join(''):'<p class="muted">ยังไม่มีใบงานจัดสินค้า</p>';
+ }
+ function renderProducts(){
+  const q=$('pickingProductSearch').value.trim().toLowerCase();
+  const rows=productsData.filter(p=>p.is_active!==false&&[p.sku,p.product_name,p.barcode].join(' ').toLowerCase().includes(q)).slice(0,20);
+  $('pickingProductResults').innerHTML=rows.map(p=>'<button type="button" class="product-picker-option" data-pick-product="'+p.id+'">'+(p.image_url?'<img src="'+escapeHtml(p.image_url)+'">':'<span class="product-picker-thumb"></span>')+'<span class="product-picker-details"><b>'+escapeHtml(p.sku)+'</b><span>'+escapeHtml(p.product_name)+'</span></span></button>').join('')||'<p class="muted">ไม่พบสินค้า</p>';
+  $('pickingProductResults').classList.remove('hidden');
+ }
+ function renderDraft(){
+  $('pickingDraftLineList').innerHTML=draft.length?draft.map((x,i)=>'<p>'+escapeHtml(prod(x.product_id)?.sku||'')+' · '+x.requested_quantity+' ชุด <button type="button" class="secondary" data-pick-remove="'+i+'" style="width:auto">ลบ</button></p>').join(''):'ยังไม่มีสินค้า';
+ }
+ function choose(p){
+  chosen=p;$('pickingProductSearch').value=p.sku+' — '+p.product_name;$('pickingProductResults').classList.add('hidden');
+  $('pickingSelectedProduct').innerHTML=(p.image_url?'<img src="'+escapeHtml(p.image_url)+'">':'')+'<span><b>'+escapeHtml(p.sku)+'</b><br>'+escapeHtml(p.product_name)+'</span>';$('pickingSelectedProduct').classList.remove('hidden');
+ }
+ async function openTask(id){
+  const a=await db.from('pick_tasks').select('*').eq('id',id).single();if(a.error){msg('pickingHomeStatus',a.error.message,true);return;}
+  const b=await db.from('pick_task_lines').select('*').eq('task_id',id).order('created_at');if(b.error){msg('pickingHomeStatus',b.error.message,true);return;}
+  task=a.data;lines=b.data||[];renderWork();step('pickingWorkStep');
+ }
+ function renderWork(){
+  const st=stage();$('pickingWorkTitle').textContent='ใบงาน '+task.source_document_no+' · จุดพัก '+(st?.location_code||'ไม่พบ STAGING');
+  $('pickingWorkLines').innerHTML=lines.map(l=>{
+   const p=prod(l.product_id),left=l.requested_quantity-l.picked_quantity;
+   const opts=balanceData.filter(b=>b.product_id===l.product_id).map(b=>({loc:locationsData.find(x=>x.id===b.location_id),qty:avail(l.product_id,b.location_id)})).filter(x=>x.loc&&x.qty>0&&x.loc.id!==st?.id).sort((a,b)=>b.qty-a.qty);
+   return '<article class="picking-line-card"><b>'+escapeHtml(p?.sku||'')+' — '+escapeHtml(p?.product_name||'')+'</b><p class="muted">ต้องจัด '+l.requested_quantity+' · จัดแล้ว '+l.picked_quantity+' · เหลือ '+left+' ชุด</p>'+(left>0?(opts.length?'<label>Location ต้นทาง</label><select id="pickLoc-'+l.id+'">'+opts.map(o=>'<option value="'+o.loc.id+'">'+escapeHtml(o.loc.location_code)+' · พร้อมจัด '+o.qty+'</option>').join('')+'</select><label>จำนวนที่จัด</label><input id="pickQty-'+l.id+'" type="number" min="1" max="'+left+'" value="'+Math.min(left,opts[0].qty)+'"><button type="button" data-pick-move="'+l.id+'">ย้ายเข้าจุดพักสินค้า</button>':'<p class="error">ไม่มีสต๊อกพร้อมจัด</p>'):'<p class="success">จัดครบแล้ว</p>')+'</article>';
+  }).join('');
+ }
+ async function move(id){
+  const l=lines.find(x=>x.id===id),loc=$('pickLoc-'+id)?.value,n=Number($('pickQty-'+id)?.value);
+  if(!l||!loc||!Number.isInteger(n)||n<1||n>l.requested_quantity-l.picked_quantity){msg('pickingWorkStatus','ตรวจสอบ Location และจำนวนอีกครั้ง',true);return;}
+  if(!stage()){msg('pickingWorkStatus','ไม่พบ Location STAGING ที่เปิดใช้งาน',true);return;}
+  try{
+   const {data,error}=await db.rpc('pick_task_move_to_staging',{p_idempotency_key:createIdempotencyKey('pick'),p_task_line_id:id,p_from_location_id:loc,p_quantity:n,p_notes:'Picking '+task.source_document_no});
+   if(error)throw error;msg('pickingWorkStatus','ย้ายเข้าจุดพักสำเร็จ '+n+' ชุด');await refreshAll();await openTask(task.id);
+  }catch(e){msg('pickingWorkStatus','ทำรายการไม่สำเร็จ: '+e.message,true);}
+ }
+ const tile=document.querySelector('[data-warehouse-action="PICKING"]');
+ tile?.addEventListener('click',async e=>{e.stopImmediatePropagation();showWorkflowPanel('pickingPanel');step('pickingHomeStep');$('pickingHomeStatus').textContent='';await refresh();},true);
+ $('pickingNewTaskBtn').addEventListener('click',()=>{draft=[];$('pickingDocNo').value='';$('pickingNotes').value='';renderDraft();step('pickingCreateStep');});
+ $('pickingRefreshBtn').addEventListener('click',refresh);
+ $('pickingCreateCancelBtn').addEventListener('click',()=>step('pickingHomeStep'));
+ $('pickingDraftCancelBtn').addEventListener('click',()=>step('pickingHomeStep'));
+ $('pickingDocNextBtn').addEventListener('click',()=>{if(!$('pickingDocNo').value.trim()){msg('pickingCreateStatus','กรุณากรอกเลขที่ใบจอง',true);return;}step('pickingLinesStep');});
+ $('pickingLinesBackBtn').addEventListener('click',()=>step('pickingCreateStep'));
+ $('pickingProductSearch').addEventListener('input',renderProducts);
+ $('pickingProductSearch').addEventListener('focus',renderProducts);
+ $('pickingProductResults').addEventListener('click',e=>{const b=e.target.closest('[data-pick-product]');if(b){const p=prod(b.dataset.pickProduct);if(p)choose(p);}});
+ $('pickingAddLineBtn').addEventListener('click',()=>{const n=Number($('pickingLineQty').value);if(!chosen||!Number.isInteger(n)||n<1){msg('pickingCreateStatus','เลือกสินค้าและกรอกจำนวนให้ถูกต้อง',true);return;}draft.push({source_line_id:'MANUAL-'+createIdempotencyKey('line'),product_id:chosen.id,requested_quantity:n});chosen=null;$('pickingProductSearch').value='';$('pickingSelectedProduct').classList.add('hidden');$('pickingLineQty').value='';renderDraft();msg('pickingCreateStatus','เพิ่มสินค้าแล้ว');});
+ $('pickingDraftLineList').addEventListener('click',e=>{const b=e.target.closest('[data-pick-remove]');if(b){draft.splice(+b.dataset.pickRemove,1);renderDraft();}});
+ $('pickingCreateSubmitBtn').addEventListener('click',async()=>{
+  if(!draft.length){msg('pickingCreateStatus','เพิ่มสินค้าอย่างน้อย 1 รายการ',true);return;}
+  const btn=$('pickingCreateSubmitBtn');btn.disabled=true;
+  try{const {data,error}=await db.rpc('create_pick_task',{p_source_system:'MANUAL',p_source_document_type:'RESERVATION',p_source_document_no:$('pickingDocNo').value.trim(),p_source_document_id:null,p_lines:draft,p_notes:$('pickingNotes').value.trim()||null});if(error)throw error;await refresh();await openTask(data);}
+  catch(e){msg('pickingCreateStatus','สร้างใบงานไม่สำเร็จ: '+e.message,true);}finally{btn.disabled=false;}
+ });
+ $('pickingTaskList').addEventListener('click',e=>{const b=e.target.closest('[data-pick-open]');if(b)openTask(b.dataset.pickOpen);});
+ $('pickingWorkLines').addEventListener('click',e=>{const b=e.target.closest('[data-pick-move]');if(b)move(b.dataset.pickMove);});
+ $('pickingWorkBackBtn').addEventListener('click',async()=>{step('pickingHomeStep');await refresh();});
+})();
+</script>
 </body>
 </html>
