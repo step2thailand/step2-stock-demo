@@ -3886,7 +3886,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
   const l=lines.find(x=>x.id===id),qty=Number($('dispatchQty-'+id)?.value),sent=l?dispatched(l.id):0,pending=l?Number(l.picked_quantity||0)-sent:0,staged=l?stagingQty(l.product_id):0;
   if(!l||task?.status!=='READY'||!Number.isInteger(qty)||qty<1||qty>pending||qty>staged){msg('dispatchWorkStatus','ตรวจสอบจำนวนส่งมอบและยอดใน STAGING อีกครั้ง',true);return;}
   const p=product(l.product_id);
-  if(!window.confirm('ยืนยันส่งมอบสินค้าออกจาก STAGING?\\n\\n'+(p?.sku||'')+' — '+(p?.product_name||'')+'\\nจำนวน '+qty+' ชุด\\nใบงาน '+task.source_document_no+'\\n\\nการยืนยันนี้จะตัดยอดสินค้าจริงออกจากคลัง'))return;
+  if(!window.confirm('ยืนยันส่งมอบสินค้าออกจาก STAGING?\n\n'+(p?.sku||'')+' — '+(p?.product_name||'')+'\nจำนวน '+qty+' ชุด\nใบงาน '+task.source_document_no+'\n\nการยืนยันนี้จะตัดยอดสินค้าจริงออกจากคลัง'))return;
   const btn=document.querySelector('[data-dispatch-line="'+id+'"]');if(btn)btn.disabled=true;
   try{
    const {error}=await db.rpc('dispatch_pick_task_line',{p_idempotency_key:createIdempotencyKey('dispatch'),p_task_line_id:id,p_quantity:qty,p_notes:'Dispatch '+task.source_document_no});
