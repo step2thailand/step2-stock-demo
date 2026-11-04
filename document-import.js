@@ -21,7 +21,7 @@
    const ignore=/^(?:รายการ|รหัส|ราคา|จานวน|จำนวน|ส่วนลด|รวม|เลขที่|วันที่|หน่วย|หน้า|โทร|ที่อยู่|ผู้|วิธี|วัน|ภาษี|บาท|ชุด|ชิ้น|ครั้ง|เครดิต|กำหนด|หมายเหตุ)/i;
    for(let i=0;i<lines.length;i++){
      const sku=lines[i].replace(/\s/g,'');
-     if(!isSku(sku))continue;
+     if(!isSku(sku)||sku==='1/1'||sku==='00000')continue;
      const before=lines.slice(Math.max(0,i-7),i);
      let name='';
      for(let j=before.length-1;j>=0;j--){
