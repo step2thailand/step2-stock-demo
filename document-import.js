@@ -3,7 +3,8 @@
  const $=id=>document.getElementById(id);
  const fileInput=$('documentImportFile');
  if(!fileInput)return;
- let currentFile=null;\n const seenDocumentNumbers=new Set();
+ let currentFile=null;
+ const seenDocumentNumbers=new Set();
  const setStatus=(text,error=false)=>{const el=$('documentImportStatus');el.textContent=text;el.className='status '+(error?'error':'success');};
  const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const toISO=(raw)=>{
