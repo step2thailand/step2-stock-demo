@@ -3,7 +3,7 @@
  const $=id=>document.getElementById(id);
  const fileInput=$('documentImportFile');
  if(!fileInput)return;
- let currentFile=null;
+ let currentFile=null;\n const seenDocumentNumbers=new Set();
  const setStatus=(text,error=false)=>{const el=$('documentImportStatus');el.textContent=text;el.className='status '+(error?'error':'success');};
  const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const toISO=(raw)=>{
@@ -56,7 +56,7 @@
    if(!no)warnings.push('ไม่พบเลขที่เอกสารชัดเจน กรุณาตรวจสอบและกรอกเอง');
    if(!items.length)warnings.push('ไม่สามารถแยกรายการสินค้าได้จาก PDF นี้');
    if(reservation&&/รับเอง/.test(all)&&/Flash Express|ขนส่ง/i.test(all))warnings.push('ข้อมูลวิธีจัดส่งขัดแย้งกัน: ช่องวิธีจัดส่งระบุ “รับเอง” แต่หมายเหตุระบุ Flash Express กรุณาตรวจสอบ');
-   if(items.some(x=>x.sku==='4/2'))warnings.push('พบ SKU 4/2 ซึ่งเป็นค่าบริการ ไม่ควรนับเป็นสินค้าในคลัง');
+   if(items.some(x=>x.sku==='4/2'))warnings.push('พบ SKU 4/2 ซึ่งเป็นค่าบริการ ไม่ควรนับเป็นสินค้าในคลัง');\n   if(no&&seenDocumentNumbers.has(no))warnings.push('พบเลขที่เอกสารนี้ซ้ำกับไฟล์ที่อ่านไปแล้วในรอบการใช้งานนี้');
    return {type:quote?'QUOTATION':reservation?'RESERVATION':'UNKNOWN',number:no,date:toISO(dates[0]),dueDate:reservation?toISO(dates[1]):'',expiryDate:reservation?toISO(dates[2]):'',delivery,leadDays:day[1]||day[2]||'',validDays:validity[1]||validity[2]||'',items,warnings,rawText:text};
  }
  function render(result){
@@ -88,7 +88,7 @@
    try{
      const text=await readPdf(file);
      if(!text.trim()){setStatus('ไฟล์นี้ไม่มีข้อความให้อ่าน อาจเป็น PDF ที่สแกนเป็นรูปภาพ (รุ่นทดลองนี้ยังไม่เปิด OCR) กรุณาใช้ PDF ที่ส่งออกจาก Business Plus โดยตรง',true);return;}
-     const parsed=parseText(text);render(parsed);
+     const parsed=parseText(text);if(parsed.number)seenDocumentNumbers.add(parsed.number);render(parsed);
      setStatus('อ่านไฟล์สำเร็จ '+file.name+' · '+parsed.items.length+' รายการที่ตรวจพบ · ยังไม่มีการบันทึกข้อมูลใด ๆ');
    }catch(e){setStatus('อ่านไฟล์ไม่สำเร็จ: '+(e?.message||e),true);}
  });
@@ -102,8 +102,16 @@
  const tile=document.querySelector('[data-warehouse-action="DOC_IMPORT"]');
  tile?.addEventListener('click',e=>{
    e.stopImmediatePropagation();
-   if(typeof showWorkflowPanel==='function')showWorkflowPanel('documentImportPanel');
-   else{$('documentImportPanel').classList.remove('hidden');}
+   const panel=$('documentImportPanel');
+   document.querySelectorAll('.workflow-panel').forEach(p=>{p.classList.add('hidden');p.classList.remove('workflow-popup-active');});
+   panel.classList.remove('hidden');panel.classList.add('workflow-popup-active');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');
+   document.body.classList.add('workflow-modal-active');
+   if(!panel.querySelector('.workflow-popup-close-row')){
+     const row=document.createElement('div');row.className='workflow-popup-close-row';
+     const close=document.createElement('button');close.type='button';close.className='workflow-popup-close';close.textContent='ปิด กลับเมนู';
+     close.addEventListener('click',()=>{panel.classList.add('hidden');panel.classList.remove('workflow-popup-active');panel.removeAttribute('role');panel.removeAttribute('aria-modal');document.body.classList.remove('workflow-modal-active');});
+     row.appendChild(close);panel.insertBefore(row,panel.firstChild);
+   }
    $('documentImportReview').classList.add('hidden');setStatus('เลือกไฟล์ PDF เพื่อเริ่มอ่านเอกสาร');
  },true);
 })();
