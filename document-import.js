@@ -3,95 +3,104 @@
  const $=id=>document.getElementById(id);
  const fileInput=$('documentImportFile');
  if(!fileInput)return;
- let currentFile=null;
  const seenDocumentNumbers=new Set();
  const setStatus=(text,error=false)=>{const el=$('documentImportStatus');el.textContent=text;el.className='status '+(error?'error':'success');};
  const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const toISO=(raw)=>{
-   if(!raw)return '';
-   const m=String(raw).match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+ function toISO(raw){
+   const m=String(raw||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
    if(!m)return '';
-   let y=Number(m[3]);if(y>2400)y-=543;else if(y<100)y+=2000;
-   return String(y).padStart(4,'0')+'-'+String(Number(m[2])).padStart(2,'0')+'-'+String(Number(m[1])).padStart(2,'0');
- };
- const cleanLines=t=>t.split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
- function extractLines(lines){
-   const found=[];
-   const isSku=s=>/^(?:\d{3,5}|\d{1,4}\/\d{1,4})$/.test(s);
-   const ignore=/^(?:รายการ|รหัส|ราคา|จานวน|จำนวน|ส่วนลด|รวม|เลขที่|วันที่|หน่วย|หน้า|โทร|ที่อยู่|ผู้|วิธี|วัน|ภาษี|บาท|ชุด|ชิ้น|ครั้ง|เครดิต|กำหนด|หมายเหตุ)/i;
-   for(let i=0;i<lines.length;i++){
-     const sku=lines[i].replace(/\s/g,'');
-     if(!isSku(sku)||sku==='1/1'||sku==='00000')continue;
-     const before=lines.slice(Math.max(0,i-7),i);
-     let name='';
-     for(let j=before.length-1;j>=0;j--){
-       const x=before[j];
-       if(/[ก-๙A-Za-z]/.test(x)&&!ignore.test(x)&&!/^\d/.test(x)&&!/%$/.test(x)&&x.length>2){name=x;break;}
-     }
-     const near=lines.slice(Math.max(0,i-5),Math.min(lines.length,i+6));
-     let qty=1;
-     const unitQty=near.map(x=>x.match(/(\d+(?:\.\d+)?)\s*(?:ชุด|ชิ้น|ครั้ง|ชทด|ชคด|ครตชง)/i)).find(Boolean);
-     if(unitQty)qty=Math.max(1,Math.round(Number(unitQty[1])));
-     else{
-       const nums=near.map(x=>x.match(/^\s*(\d+(?:\.\d+)?)\s*$/)).filter(Boolean).map(x=>Number(x[1])).filter(n=>n>0&&n<=100);
-       if(nums.length)qty=Math.max(1,Math.round(nums[0]));
-     }
-     const service=sku==='4/2'||/ค่าบริการ|บริการจัดส่ง|จตดสทง|shipping|delivery service/i.test(name);
-     found.push({sku,name:name||'ไม่สามารถอ่านชื่อสินค้าได้',quantity:qty,is_inventory:!service,unit:service?'ครั้ง':'ชุด'});
-   }
-   const seen=new Set();
-   return found.filter(x=>{const k=x.sku+'|'+x.name;if(seen.has(k))return false;seen.add(k);return true;});
+   let year=Number(m[3]);if(year<100)year+=2500; if(year>=2400)year-=543;
+   const day=Number(m[1]),month=Number(m[2]);
+   if(month<1||month>12||day<1||day>31)return '';
+   return String(year).padStart(4,'0')+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
  }
- function parseText(text){
-   const lines=cleanLines(text);
-   const all=text.replace(/\s+/g,' ');
-   const no=(all.match(/\b(?:Q|BK)\d{6}\/\d{4,6}\b/i)||[])[0]||'';
-   const quote=/ใบเสนอราคา|quotation|\bQ\d{6}\//i.test(all);
-   const reservation=/ใบจอง|\bBK\d{6}\//i.test(all);
-   const dates=[...all.matchAll(/\b(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g)].map(m=>m[1]);
-   const day=(all.match(/Deliver\s*:\s*(\d+)\s*วน|Deliver\s*:\s*(\d+)\s*วัน/i)||[]);
-   const validity=(all.match(/valid\s*for\s*:\s*(\d+)\s*วน|valid\s*for\s*:\s*(\d+)\s*วัน/i)||[]);
-   const delivery=(lines.find(x=>/รับเอง|ขนส่ง|Flash|Kerry|J&T|ไปรษณีย์/i.test(x))||'').trim();
-   const items=extractLines(lines);
+ const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
+ const productBySku=sku=>(window.productsData||[]).find(p=>String(p.sku??'').trim()===String(sku).trim());
+ function groupRows(items){
+   const sorted=items.filter(x=>normalize(x.str)).map(x=>({text:normalize(x.str),x:x.x,y:x.y})).sort((a,b)=>a.y-b.y||a.x-b.x);
+   const rows=[];
+   for(const item of sorted){
+     let row=rows.find(r=>Math.abs(r.y-item.y)<=2.8);
+     if(!row){row={y:item.y,items:[]};rows.push(row);}
+     row.items.push(item);
+     row.y=row.items.reduce((s,v)=>s+v.y,0)/row.items.length;
+   }
+   return rows.map(r=>({y:r.y,items:r.items.sort((a,b)=>a.x-b.x),text:r.items.map(x=>x.text).join(' ')})).sort((a,b)=>a.y-b.y);
+ }
+ function findCell(row,minX,maxX,pattern){
+   return row.items.filter(x=>x.x>=minX&&x.x<maxX).map(x=>x.text).find(s=>pattern.test(s))||'';
+ }
+ function parsePositioned(pages){
+   const allItems=pages.flat();
+   const rows=groupRows(allItems);
+   const allText=rows.map(r=>r.text).join('\n');
+   const docNoItem=allItems.find(x=>x.x>=400&&/\b(?:Q|BK)\d{6}\/\d{4,6}\b/i.test(x.str));
+   const number=(docNoItem?.str.match(/\b(?:Q|BK)\d{6}\/\d{4,6}\b/i)||[])[0]||'';
+   const quote=/ใบเสนอราคา|quotation|\bQ\d{6}\//i.test(allText);
+   const reservation=/ใบจอง|\bBK\d{6}\//i.test(allText);
+   const dateRows=rows.filter(r=>r.y>=125&&r.y<=215);
+   const dateCells=dateRows.map(r=>({y:r.y,value:findCell(r,400,590,/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)})).filter(x=>x.value);
+   const date=dateCells[0]?.value||'';
+   const dueDate=dateCells[1]?.value||'';
+   const expiryDate=dateCells[2]?.value||'';
+   const deliveryRow=rows.find(r=>r.y>=205&&r.y<=225&&r.items.some(x=>x.x>=400&&/รับเอง|Flash|Kerry|J&T|ไปรษณีย์|ขนส่ง/i.test(x.text)));
+   const delivery=deliveryRow?.items.filter(x=>x.x>=400).map(x=>x.text).join(' ')||'';
+   const headerTable=rows.find(r=>r.y>=255&&r.y<=280&&/รห.*สนค|รหัสสินค้า|SKU/i.test(r.text));
+   const tableTop=headerTable?.y??270;
+   const totalY=rows.find(r=>r.y>tableTop&&/รวมท.*หมด|รวมทั้งหมด/.test(r.text))?.y??560;
+   const itemRows=rows.filter(r=>r.y>tableTop+3&&r.y<totalY);
+   const items=[];
+   for(const row of itemRows){
+     const sku=findCell(row,18,115,/^(?:\d{3,5}|\d{1,4}\/\d{1,4})$/);
+     if(!sku)continue;
+     const name=row.items.filter(x=>x.x>=120&&x.x<290).map(x=>x.text).join(' ').trim();
+     const qtyText=findCell(row,335,410,/^\d+(?:\.\d+)?$/);
+     const quantity=qtyText?Math.max(1,Math.round(Number(qtyText))):0;
+     const service=sku==='4/2'||/ค่าบริการ|บริการจัดส่ง|จตดสทง|shipping|delivery service/i.test(name);
+     const product=service?null:productBySku(sku);
+     items.push({sku,name:product?.product_name||name||'ไม่พบชื่อในฐานข้อมูลสินค้า',quantity,is_inventory:!service,unit:service?'ครั้ง':'ชุด',matched_product:!!product});
+   }
    const warnings=[];
-   if(!no)warnings.push('ไม่พบเลขที่เอกสารชัดเจน กรุณาตรวจสอบและกรอกเอง');
-   if(!items.length)warnings.push('ไม่สามารถแยกรายการสินค้าได้จาก PDF นี้');
-   if(reservation&&/รับเอง/.test(all)&&/Flash Express|ขนส่ง/i.test(all))warnings.push('ข้อมูลวิธีจัดส่งขัดแย้งกัน: ช่องวิธีจัดส่งระบุ “รับเอง” แต่หมายเหตุระบุ Flash Express กรุณาตรวจสอบ');
+   if(!number)warnings.push('ไม่พบเลขที่เอกสารในตำแหน่งหัวเอกสาร กรุณาตรวจสอบและกรอกเอง');
+   if(!date)warnings.push('ไม่พบวันที่เอกสารในตำแหน่งที่คาดไว้ กรุณาตรวจสอบ');
+   if(!items.length)warnings.push('ไม่พบแถวสินค้าในบริเวณตาราง กรุณาตรวจสอบรูปแบบ PDF');
+   if(items.some(x=>!x.matched_product&&!['4/2'].includes(x.sku)))warnings.push('มี SKU ที่ไม่พบในฐานข้อมูลสินค้า กรุณาตรวจสอบก่อนใช้งาน');
    if(items.some(x=>x.sku==='4/2'))warnings.push('พบ SKU 4/2 ซึ่งเป็นค่าบริการ ไม่ควรนับเป็นสินค้าในคลัง');
-   if(no&&seenDocumentNumbers.has(no))warnings.push('พบเลขที่เอกสารนี้ซ้ำกับไฟล์ที่อ่านไปแล้วในรอบการใช้งานนี้');
-   return {type:quote?'QUOTATION':reservation?'RESERVATION':'UNKNOWN',number:no,date:toISO(dates[0]),dueDate:reservation?toISO(dates[1]):'',expiryDate:reservation?toISO(dates[2]):'',delivery,leadDays:day[1]||day[2]||'',validDays:validity[1]||validity[2]||'',items,warnings,rawText:text};
+   if(reservation&&/รับเอง/.test(allText)&&/Flash Express|ขนส่ง/i.test(allText))warnings.push('ข้อมูลวิธีจัดส่งขัดแย้งกัน: ช่องวิธีจัดส่งระบุ “รับเอง” แต่หมายเหตุระบุ Flash Express กรุณาตรวจสอบ');
+   if(number&&seenDocumentNumbers.has(number))warnings.push('พบเลขที่เอกสารนี้ซ้ำกับไฟล์ที่อ่านไปแล้วในรอบการใช้งานนี้');
+   return {type:quote?'QUOTATION':reservation?'RESERVATION':'UNKNOWN',number,date:toISO(date),dueDate:toISO(dueDate),expiryDate:toISO(expiryDate),delivery,items,warnings,rawText:allText};
  }
  function render(result){
    $('diType').value=result.type;$('diNumber').value=result.number;$('diDate').value=result.date;$('diDueDate').value=result.dueDate;$('diExpiryDate').value=result.expiryDate;$('diDelivery').value=result.delivery;
-   const warn=[...result.warnings];
-   if(result.leadDays)warn.push('เอกสารระบุระยะเวลาจัดส่ง '+result.leadDays+' วัน (ยังไม่ใช่วันนัดส่งที่แน่นอน)');
-   if(result.validDays)warn.push('ใบเสนอราคาระบุอายุ '+result.validDays+' วัน');
-   $('documentImportWarnings').innerHTML=warn.length?'<strong>โปรดตรวจสอบ</strong><ul>'+warn.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':'<strong>ไม่พบคำเตือนจากการอ่านเบื้องต้น</strong>';
+   $('documentImportWarnings').innerHTML=result.warnings.length?'<strong>โปรดตรวจสอบ</strong><ul>'+result.warnings.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':'<strong>ไม่พบคำเตือนจากการอ่านเบื้องต้น</strong>';
    $('documentImportWarnings').classList.remove('hidden');
-   $('documentImportLines').innerHTML=result.items.length?result.items.map((x,i)=>'<article class="picking-line-card" data-di-row="'+i+'"><div class="form-grid"><div><label>SKU</label><input data-di-field="sku" value="'+escapeHtml(x.sku)+'"></div><div><label>ชื่อรายการ</label><input data-di-field="name" value="'+escapeHtml(x.name)+'"></div><div><label>จำนวน</label><input data-di-field="quantity" type="number" min="0" step="1" value="'+x.quantity+'"></div></div><label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-di-field="inventory" type="checkbox" '+(x.is_inventory?'checked':'')+' style="width:auto"> นับเป็นสินค้าในคลัง (ยกเลิกสำหรับค่าบริการ)</label></article>').join(''):'<p class="error">ยังไม่พบรายการที่แยกได้ กรุณาตรวจสอบว่าเป็น PDF ที่มีข้อความ</p>';
+   $('documentImportLines').innerHTML=result.items.length?result.items.map((x,i)=>'<article class="picking-line-card" data-di-row="'+i+'"><div class="form-grid"><div><label>SKU</label><input data-di-field="sku" value="'+escapeHtml(x.sku)+'"></div><div><label>ชื่อรายการ</label><input data-di-field="name" value="'+escapeHtml(x.name)+'"></div><div><label>จำนวน</label><input data-di-field="quantity" type="number" min="0" step="1" value="'+x.quantity+'"></div></div><label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-di-field="inventory" type="checkbox" '+(x.is_inventory?'checked':'')+' style="width:auto"> นับเป็นสินค้าในคลัง (ยกเลิกสำหรับค่าบริการ)</label></article>').join(''):'<p class="error">ยังไม่พบรายการสินค้า กรุณาตรวจสอบ PDF</p>';
    $('documentImportReview').classList.remove('hidden');
  }
  async function readPdf(file){
    if(!window.pdfjsLib)throw new Error('โหลดตัวอ่าน PDF ไม่สำเร็จ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่');
    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-   const data=new Uint8Array(await file.arrayBuffer());
-   const pdf=await window.pdfjsLib.getDocument({data}).promise;
-   const pages=[];
+   const data=new Uint8Array(await file.arrayBuffer()),pdf=await window.pdfjsLib.getDocument({data}).promise,pages=[];
    for(let p=1;p<=pdf.numPages;p++){
-     const page=await pdf.getPage(p),content=await page.getTextContent();
-     pages.push(content.items.map(x=>x.str).filter(Boolean).join('\n'));
+     const page=await pdf.getPage(p),viewport=page.getViewport({scale:1}),content=await page.getTextContent(),items=[];
+     for(const x of content.items){
+       if(!x.str||!x.str.trim())continue;
+       const point=viewport.convertToViewportPoint(x.transform[4],x.transform[5]);
+       items.push({str:x.str,x:point[0],y:point[1]});
+     }
+     pages.push(items);
    }
-   return pages.join('\n');
+   return pages;
  }
  fileInput.addEventListener('change',async()=>{
    const file=fileInput.files?.[0];if(!file)return;
-   currentFile=file;$('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');
-   setStatus('กำลังอ่าน PDF: '+file.name+' ...');
+   $('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');
+   setStatus('กำลังอ่าน PDF และแยกข้อมูลตามตำแหน่งบนเอกสาร: '+file.name+' ...');
    try{
-     const text=await readPdf(file);
-     if(!text.trim()){setStatus('ไฟล์นี้ไม่มีข้อความให้อ่าน อาจเป็น PDF ที่สแกนเป็นรูปภาพ (รุ่นทดลองนี้ยังไม่เปิด OCR) กรุณาใช้ PDF ที่ส่งออกจาก Business Plus โดยตรง',true);return;}
-     const parsed=parseText(text);if(parsed.number)seenDocumentNumbers.add(parsed.number);render(parsed);
-     setStatus('อ่านไฟล์สำเร็จ '+file.name+' · '+parsed.items.length+' รายการที่ตรวจพบ · ยังไม่มีการบันทึกข้อมูลใด ๆ');
+     const pages=await readPdf(file);
+     if(!pages.some(p=>p.length)){setStatus('ไฟล์นี้ไม่มีข้อความให้อ่าน อาจเป็น PDF แบบภาพสแกน รุ่นนี้ยังไม่รองรับ OCR',true);return;}
+     const parsed=parsePositioned(pages);if(parsed.number)seenDocumentNumbers.add(parsed.number);render(parsed);
+     setStatus('อ่าน PDF เสร็จแล้ว · พบ '+parsed.items.length+' แถวในบริเวณตาราง · กรุณาตรวจสอบทุกช่องก่อนใช้งาน · ไม่มีการบันทึกข้อมูล');
    }catch(e){setStatus('อ่านไฟล์ไม่สำเร็จ: '+(e?.message||e),true);}
  });
  $('documentImportLines').addEventListener('input',e=>{
@@ -99,7 +108,7 @@
    if(e.target.dataset.diField==='quantity'&&Number(e.target.value)<0)e.target.value='0';
  });
  $('documentImportResetBtn').addEventListener('click',()=>{
-   fileInput.value='';currentFile=null;$('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');setStatus('ล้างผลการอ่านแล้ว กรุณาเลือกไฟล์ PDF ใหม่');
+   fileInput.value='';$('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');setStatus('ล้างผลการอ่านแล้ว กรุณาเลือกไฟล์ PDF ใหม่');
  });
  const tile=document.querySelector('[data-warehouse-action="DOC_IMPORT"]');
  tile?.addEventListener('click',e=>{
