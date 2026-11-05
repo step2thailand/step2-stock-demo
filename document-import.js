@@ -9,10 +9,18 @@
  function toISO(raw){
    const m=String(raw||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
    if(!m)return '';
-   let year=Number(m[3]);if(year<100)year+=2500; if(year>=2400)year-=543;
    const day=Number(m[1]),month=Number(m[2]);
-   if(month<1||month>12||day<1||day>31)return '';
+   let year=Number(m[3]);
+   if(year<100)year+=2500;
+   if(year>=2400)year-=543;
+   const d=new Date(Date.UTC(year,month-1,day));
+   if(d.getUTCFullYear()!==year||d.getUTCMonth()!==month-1||d.getUTCDate()!==day)return '';
    return String(year).padStart(4,'0')+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+ }
+ function displayThaiDate(iso){
+   const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+   if(!m)return '';
+   return m[3]+'/'+m[2]+'/'+String(Number(m[1])+543);
  }
  const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
  const productBySku=sku=>(typeof window.getInventoryProducts==='function'?window.getInventoryProducts():[]).find(p=>String(p.sku??'').trim()===String(sku).trim());
@@ -43,8 +51,11 @@
    const date=dateCells[0]?.value||'';
    const dueDate=dateCells[1]?.value||'';
    const expiryDate=dateCells[2]?.value||'';
-   const deliveryRow=rows.find(r=>r.y>=205&&r.y<=225&&r.items.some(x=>x.x>=400&&/รับเอง|Flash|Kerry|J&T|ไปรษณีย์|ขนส่ง/i.test(x.text)));
-   const delivery=deliveryRow?.items.filter(x=>x.x>=400).map(x=>x.text).join(' ')||'';
+   // The PDF's embedded Thai font maps the printed "รับเอง" to garbled text.
+   // Read the value by its fixed cell position, then normalize this known glyph mapping.
+   const deliveryRow=rows.find(r=>r.y>=205&&r.y<=220&&r.items.some(x=>x.x>=430&&x.x<=510));
+   const deliveryRaw=deliveryRow?.items.filter(x=>x.x>=430&&x.x<=540).map(x=>x.text).join(' ').trim()||'';
+   const delivery=/รตบเอง|รบเอง|รับเอง/i.test(deliveryRaw)?'รับเอง':deliveryRaw;
    const headerTable=rows.find(r=>r.y>=255&&r.y<=280&&/รห.*สนค|รหัสสินค้า|SKU/i.test(r.text));
    const tableTop=headerTable?.y??270;
    const totalY=rows.find(r=>r.y>tableTop&&/รวมท.*หมด|รวมทั้งหมด/.test(r.text))?.y??560;
@@ -58,7 +69,10 @@
      const quantity=qtyText?Math.max(1,Math.round(Number(qtyText))):0;
      const service=sku==='4/2'||/ค่าบริการ|บริการจัดส่ง|จตดสทง|shipping|delivery service/i.test(name);
      const product=service?null:productBySku(sku);
-     items.push({sku,name:product?.product_name||name||'ไม่พบชื่อในฐานข้อมูลสินค้า',quantity,is_inventory:!service,unit:service?'ครั้ง':'ชุด',matched_product:!!product});
+     // SKU 4/2 is the known shipping-service line; the PDF's embedded Thai font
+     // corrupts its extracted glyphs, so use a clear canonical label instead.
+     const displayName=sku==='4/2'?'ค่าบริการจัดส่งสินค้า':(product?.product_name||name||'ไม่พบชื่อในฐานข้อมูลสินค้า');
+     items.push({sku,name:displayName,quantity,is_inventory:!service,unit:service?'ครั้ง':'ชุด',matched_product:service||!!product});
    }
    const warnings=[];
    if(!number)warnings.push('ไม่พบเลขที่เอกสารในตำแหน่งหัวเอกสาร กรุณาตรวจสอบและกรอกเอง');
@@ -71,7 +85,11 @@
    return {type:quote?'QUOTATION':reservation?'RESERVATION':'UNKNOWN',number,date:toISO(date),dueDate:toISO(dueDate),expiryDate:toISO(expiryDate),delivery,items,warnings,rawText:allText};
  }
  function render(result){
-   $('diType').value=result.type;$('diNumber').value=result.number;$('diDate').value=result.date;$('diDueDate').value=result.dueDate;$('diExpiryDate').value=result.expiryDate;$('diDelivery').value=result.delivery;
+   $('diType').value=result.type;$('diNumber').value=result.number;
+   $('diDate').value=displayThaiDate(result.date);
+   $('diDueDate').value=displayThaiDate(result.dueDate);
+   $('diExpiryDate').value=displayThaiDate(result.expiryDate);
+   $('diDelivery').value=result.delivery;
    $('documentImportWarnings').innerHTML=result.warnings.length?'<strong>โปรดตรวจสอบ</strong><ul>'+result.warnings.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':'<strong>ไม่พบคำเตือนจากการอ่านเบื้องต้น</strong>';
    $('documentImportWarnings').classList.remove('hidden');
    $('documentImportLines').innerHTML=result.items.length?result.items.map((x,i)=>'<article class="picking-line-card" data-di-row="'+i+'"><div class="form-grid"><div><label>SKU</label><input data-di-field="sku" value="'+escapeHtml(x.sku)+'"></div><div><label>ชื่อรายการ</label><input data-di-field="name" value="'+escapeHtml(x.name)+'"></div><div><label>จำนวน</label><input data-di-field="quantity" type="number" min="0" step="1" value="'+x.quantity+'"></div></div><label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-di-field="inventory" type="checkbox" '+(x.is_inventory?'checked':'')+' style="width:auto"> นับเป็นสินค้าในคลัง (ยกเลิกสำหรับค่าบริการ)</label></article>').join(''):'<p class="error">ยังไม่พบรายการสินค้า กรุณาตรวจสอบ PDF</p>';
