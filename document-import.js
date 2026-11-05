@@ -15,7 +15,7 @@
    return String(year).padStart(4,'0')+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
  }
  const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
- const productBySku=sku=>(window.productsData||[]).find(p=>String(p.sku??'').trim()===String(sku).trim());
+ const productBySku=sku=>(typeof window.getInventoryProducts==='function'?window.getInventoryProducts():[]).find(p=>String(p.sku??'').trim()===String(sku).trim());
  function groupRows(items){
    const sorted=items.filter(x=>normalize(x.str)).map(x=>({text:normalize(x.str),x:x.x,y:x.y})).sort((a,b)=>a.y-b.y||a.x-b.x);
    const rows=[];
