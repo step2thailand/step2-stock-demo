@@ -51,11 +51,15 @@
    const date=dateCells[0]?.value||'';
    const dueDate=dateCells[1]?.value||'';
    const expiryDate=dateCells[2]?.value||'';
-   // The PDF's embedded Thai font maps the printed "รับเอง" to garbled text.
-   // Read the value by its fixed cell position, then normalize this known glyph mapping.
+   // Only accept recognizable delivery methods. In quotation PDFs the same
+   // coordinates may contain payment/total text (Thai embedded-font garbling),
+   // which must never be copied into the delivery field.
    const deliveryRow=rows.find(r=>r.y>=205&&r.y<=220&&r.items.some(x=>x.x>=430&&x.x<=510));
    const deliveryRaw=deliveryRow?.items.filter(x=>x.x>=430&&x.x<=540).map(x=>x.text).join(' ').trim()||'';
-   const delivery=/รตบเอง|รบเอง|รับเอง/i.test(deliveryRaw)?'รับเอง':deliveryRaw;
+   const deliveryMatch=deliveryRaw.match(/รับเอง|รตบเอง|รบเอง|Flash\s*Express|Kerry|J&T|ไปรษณีย์|ขนส่ง|จัดส่ง/i);
+   const delivery=deliveryMatch
+     ? (/รตบเอง|รบเอง|รับเอง/i.test(deliveryMatch[0])?'รับเอง':deliveryMatch[0])
+     : '';
    const headerTable=rows.find(r=>r.y>=255&&r.y<=280&&/รห.*สนค|รหัสสินค้า|SKU/i.test(r.text));
    const tableTop=headerTable?.y??270;
    const totalY=rows.find(r=>r.y>tableTop&&/รวมท.*หมด|รวมทั้งหมด/.test(r.text))?.y??560;
@@ -77,6 +81,8 @@
    const warnings=[];
    if(!number)warnings.push('ไม่พบเลขที่เอกสารในตำแหน่งหัวเอกสาร กรุณาตรวจสอบและกรอกเอง');
    if(!date)warnings.push('ไม่พบวันที่เอกสารในตำแหน่งที่คาดไว้ กรุณาตรวจสอบ');
+   if(quote&&!delivery)warnings.push('ใบเสนอราคาไม่พบวิธีจัดส่งที่อ่านได้ชัดเจน จึงเว้นช่องนี้ว่างไว้ กรุณากรอกหรือยืนยันเอง');
+   if(!quote&&!delivery)warnings.push('ไม่พบวิธีจัดส่งที่อ่านได้ชัดเจน กรุณาตรวจสอบและกรอกเอง');
    if(!items.length)warnings.push('ไม่พบแถวสินค้าในบริเวณตาราง กรุณาตรวจสอบรูปแบบ PDF');
    if(items.some(x=>!x.matched_product&&!['4/2'].includes(x.sku)))warnings.push('มี SKU ที่ไม่พบในฐานข้อมูลสินค้า กรุณาตรวจสอบก่อนใช้งาน');
    if(items.some(x=>x.sku==='4/2'))warnings.push('พบ SKU 4/2 ซึ่งเป็นค่าบริการ ไม่ควรนับเป็นสินค้าในคลัง');
