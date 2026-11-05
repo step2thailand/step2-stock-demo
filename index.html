@@ -1021,6 +1021,8 @@
 
   const $ = id => document.getElementById(id);
   let productsData = [];
+  // Expose a read-only snapshot accessor for the isolated PDF preview module.
+  window.getInventoryProducts = () => productsData;
   let locationsData = [];
   let balanceData = [];
   let historyData = [];
