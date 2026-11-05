@@ -532,9 +532,9 @@
         <div class="form-grid" style="margin-top:14px">
           <div><label for="diType">ประเภทเอกสาร</label><select id="diType"><option value="QUOTATION">ใบเสนอราคา</option><option value="RESERVATION">ใบจองสินค้า</option><option value="UNKNOWN">ไม่ทราบประเภท</option></select></div>
           <div><label for="diNumber">เลขที่เอกสาร</label><input id="diNumber" autocomplete="off"></div>
-          <div><label for="diDate">วันที่เอกสาร</label><input id="diDate" type="date"></div>
-          <div><label for="diDueDate">กำหนดส่ง / นัดรับ</label><input id="diDueDate" type="date"></div>
-          <div><label for="diExpiryDate">วันหมดอายุ</label><input id="diExpiryDate" type="date"></div>
+          <div><label for="diDate">วันที่เอกสาร</label><input id="diDate" type="text" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off"></div>
+          <div><label for="diDueDate">กำหนดส่ง / นัดรับ</label><input id="diDueDate" type="text" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off"></div>
+          <div><label for="diExpiryDate">วันหมดอายุ</label><input id="diExpiryDate" type="text" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off"></div>
           <div><label for="diDelivery">วิธีจัดส่ง / รับสินค้า</label><input id="diDelivery" placeholder="เช่น รับเอง / ขนส่ง"></div>
         </div>
         <div id="documentImportWarnings" class="transaction-preview hidden"></div>
