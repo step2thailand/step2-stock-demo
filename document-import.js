@@ -99,9 +99,10 @@
        if(!sku)continue;
        // Use the quantity column's own header position when available;
        // retain the known reservation coordinates as a fallback.
-       const quantityCell=quantityHeader?.items
+       const quantityHeaderX=quantityHeader?.items.find(x=>/จำนวน|qty|quantity/i.test(x.text))?.x;
+       const quantityCell=Number.isFinite(quantityHeaderX)
          ? row.items.filter(x=>/^\d+(?:\.\d+)?$/.test(x.text))
-             .sort((a,b)=>Math.abs(a.x-quantityHeader.items[0].x)-Math.abs(b.x-quantityHeader.items[0].x))[0]
+             .sort((a,b)=>Math.abs(a.x-quantityHeaderX)-Math.abs(b.x-quantityHeaderX))[0]
          : null;
        const qtyText=quantityCell?.text||findCell(row,335,430,/^\d+(?:\.\d+)?$/);
        if(!qtyText)continue;
