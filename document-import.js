@@ -169,19 +169,5 @@
  $('documentImportResetBtn').addEventListener('click',()=>{
    fileInput.value='';$('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');setStatus('ล้างผลการอ่านแล้ว กรุณาเลือกไฟล์ PDF ใหม่');
  });
- const tile=document.querySelector('[data-warehouse-action="DOC_IMPORT"]');
- tile?.addEventListener('click',e=>{
-   e.stopImmediatePropagation();
-   const panel=$('documentImportPanel');
-   document.querySelectorAll('.workflow-panel').forEach(p=>{p.classList.add('hidden');p.classList.remove('workflow-popup-active');});
-   panel.classList.remove('hidden');panel.classList.add('workflow-popup-active');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');
-   document.body.classList.add('workflow-modal-active');
-   if(!panel.querySelector('.workflow-popup-close-row')){
-     const row=document.createElement('div');row.className='workflow-popup-close-row';
-     const close=document.createElement('button');close.type='button';close.className='workflow-popup-close';close.textContent='ปิด กลับเมนู';
-     close.addEventListener('click',()=>{panel.classList.add('hidden');panel.classList.remove('workflow-popup-active');panel.removeAttribute('role');panel.removeAttribute('aria-modal');document.body.classList.remove('workflow-modal-active');});
-     row.appendChild(close);panel.insertBefore(row,panel.firstChild);
-   }
-   $('documentImportReview').classList.add('hidden');setStatus('เลือกไฟล์ PDF เพื่อเริ่มอ่านเอกสาร');
- },true);
+
 })();
