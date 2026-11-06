@@ -2592,6 +2592,11 @@ $('logoutBtn').addEventListener('click', async () => {
     button.addEventListener('click', () => {
       const action = button.getAttribute('data-warehouse-action');
 
+      // The PDF import module owns this menu action and opens its own modal.
+      // Do not let the legacy transaction handler fall through and scroll to
+      // the stock transaction panel.
+      if (action === 'DOC_IMPORT') return;
+
       if (action === 'STOCK') {
         showWorkflowPanel('stockLookupPanel');
         resetStockLookupWizard();
