@@ -47,19 +47,29 @@
    const number=(docNoItem?.str.match(/\b(?:Q|BK)\d{6}\/\d{4,6}\b/i)||[])[0]||'';
    const quote=/ใบเสนอราคา|quotation|\bQ\d{6}\//i.test(allText);
    const reservation=/ใบจอง|\bBK\d{6}\//i.test(allText);
-   // Read customer from the label's own visual row. Do not substitute the
-   // company/address block when the Attention/(ชื่อ) value is not readable.
+   // Customer name is the text immediately following the document's
+   // customer label. It may be in the same PDF text fragment, the next
+   // fragment on the same line, or the immediately following visual line.
    function readLabeledValue(labels){
+     const labelRe=/^(?:เรียน|Attention\b|\(ชื่อ\)|ชื่อ\s*[:：]?)/i;
+     const reject=/^(?:ที่อยู่|โทร|โทรศัพท์|เลขที่|วันที่|เรียน|Attention|\(ชื่อ\)|ชื่อ|คุณลูกค้า|customer)\b/i;
      for(const page of pageRows){
-       for(const row of page){
+       for(let ri=0;ri<page.length;ri++){
+         const row=page[ri];
          const idx=row.items.findIndex(x=>labels.some(re=>re.test(x.text)));
          if(idx<0)continue;
          const item=row.items[idx];
-         const labelRe=/(?:เรียน|Attention|\(ชื่อ\)|ชื่อ)\s*[:：]?/i;
          const inline=normalize(item.text.replace(labelRe,''));
-         const tail=row.items.slice(idx+1).map(x=>x.text).join(' ').trim();
-         const value=normalize([inline,tail].filter(Boolean).join(' '));
-         if(value && !/^(?:คุณลูกค้า|customer)$/i.test(value))return value;
+         if(inline&&!reject.test(inline))return inline;
+         const sameLine=row.items.slice(idx+1).map(x=>normalize(x.text)).find(v=>v&&!reject.test(v));
+         if(sameLine)return sameLine;
+         // Some PDFs place the value on the next visual line rather than
+         // keeping it in the label's row. Only inspect the nearby line.
+         const nextRows=page.slice(ri+1).filter(r=>r.y>row.y&&r.y-row.y<=22);
+         for(const next of nextRows){
+           const value=next.items.find(x=>x.x>=item.x-8&&!reject.test(normalize(x.text)));
+           if(value)return normalize(value.text);
+         }
        }
      }
      return '';
@@ -72,17 +82,28 @@
    const candidates=[];
    for(const page of pageRows){
      const header=page.find(r=>r.y>=180&&r.y<=320&&/รห.*สนค|รหัสสินค้า|SKU/i.test(r.text));
-     const tableTop=header?.y??255;
+     const quantityHeader=page.find(r=>r.y>=180&&r.y<=320&&/จำนวน|qty|quantity/i.test(r.text));
+     const tableHeader=header||quantityHeader;
+     const tableTop=tableHeader?.y??255;
      const totalRow=page.find(r=>r.y>tableTop&&/รวมท.*หมด|รวมทั้งหมด|ยอดรวม|grand total/i.test(r.text));
      const lower=totalRow?.y??560;
      for(const row of page){
        if(row.y<=tableTop+2||row.y>=lower)continue;
-       // A product row must contain both a plausible SKU in the SKU column
-       // and a numeric quantity in the quantity column. Totals/discount rows
-       // and image captions are therefore not promoted to inventory lines.
-       const sku=findCell(row,18,115,/^(?:\d{3,5}|\d{1,4}\/\d{1,4})$/);
+       // Prefer the expected SKU column. For quotation layouts that place
+       // the SKU elsewhere, accept an exact SKU already present in inventory.
+       const skuInColumn=findCell(row,18,115,/^(?:\d{3,5}|\d{1,4}\/\d{1,4})$/);
+       const skuAnywhere=row.items.map(x=>normalize(x.text)).find(s=>
+         /^(?:\d{3,5}|\d{1,4}\/\d{1,4})$/.test(s)&&(s==='4/2'||!!productBySku(s))
+       );
+       const sku=skuInColumn||(quote?skuAnywhere:'');
        if(!sku)continue;
-       const qtyText=findCell(row,335,430,/^\d+(?:\.\d+)?$/);
+       // Use the quantity column's own header position when available;
+       // retain the known reservation coordinates as a fallback.
+       const quantityCell=quantityHeader?.items
+         ? row.items.filter(x=>/^\d+(?:\.\d+)?$/.test(x.text))
+             .sort((a,b)=>Math.abs(a.x-quantityHeader.items[0].x)-Math.abs(b.x-quantityHeader.items[0].x))[0]
+         : null;
+       const qtyText=quantityCell?.text||findCell(row,335,430,/^\d+(?:\.\d+)?$/);
        if(!qtyText)continue;
        const quantity=Number(qtyText);
        if(!Number.isFinite(quantity)||quantity<=0)continue;
