@@ -24,11 +24,11 @@
  }
  const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
  const productBySku=sku=>(typeof window.getInventoryProducts==='function'?window.getInventoryProducts():[]).find(p=>String(p.sku??'').trim()===String(sku).trim());
- function groupRows(items){
+ function groupRows(items,tolerance=2.8){
    const sorted=items.filter(x=>normalize(x.str)).map(x=>({text:normalize(x.str),x:x.x,y:x.y})).sort((a,b)=>a.y-b.y||a.x-b.x);
    const rows=[];
    for(const item of sorted){
-     let row=rows.find(r=>Math.abs(r.y-item.y)<=2.8);
+     let row=rows.find(r=>Math.abs(r.y-item.y)<=tolerance);
      if(!row){row={y:item.y,items:[]};rows.push(row);}
      row.items.push(item);
      row.y=row.items.reduce((s,v)=>s+v.y,0)/row.items.length;
@@ -51,25 +51,30 @@
    // customer label. It may be in the same PDF text fragment, the next
    // fragment on the same line, or the immediately following visual line.
    function readLabeledValue(labels){
-     const labelRe=/^(?:เรียน|Attention\b|\(ชื่อ\)|ชื่อ\s*[:：]?)/i;
+     const labelRe=/^(?:เรียน|Attention\b|\(ชื่อ\)|ชื่อ\s*[:：]?)[\s:：]*/i;
      const reject=/^(?:ที่อยู่|โทร|โทรศัพท์|เลขที่|วันที่|เรียน|Attention|\(ชื่อ\)|ชื่อ|คุณลูกค้า|customer)\b/i;
-     for(const page of pageRows){
-       for(let ri=0;ri<page.length;ri++){
-         const row=page[ri];
-         const idx=row.items.findIndex(x=>labels.some(re=>re.test(x.text)));
-         if(idx<0)continue;
-         const item=row.items[idx];
-         const inline=normalize(item.text.replace(labelRe,''));
+     // PDF.js may split the label and customer into separate positioned items.
+     // Match the label first, then read the next text immediately to its right.
+     for(const page of pages){
+       const positioned=page.filter(x=>normalize(x.str)).slice().sort((a,b)=>a.y-b.y||a.x-b.x);
+       for(let i=0;i<positioned.length;i++){
+         const item=positioned[i],raw=normalize(item.str);
+         if(!labels.some(re=>re.test(raw)))continue;
+         const inline=normalize(raw.replace(labelRe,''));
          if(inline&&!reject.test(inline))return inline;
-         const sameLine=row.items.slice(idx+1).map(x=>normalize(x.text)).find(v=>v&&!reject.test(v));
-         if(sameLine)return sameLine;
-         // Some PDFs place the value on the next visual line rather than
-         // keeping it in the label's row. Only inspect the nearby line.
-         const nextRows=page.slice(ri+1).filter(r=>r.y>row.y&&r.y-row.y<=22);
-         for(const next of nextRows){
-           const value=next.items.find(x=>x.x>=item.x-8&&!reject.test(normalize(x.text)));
-           if(value)return normalize(value.text);
-         }
+         const right=positioned
+           .filter(x=>x!==item&&Math.abs(x.y-item.y)<=7&&x.x>item.x)
+           .sort((a,b)=>a.x-b.x)
+           .map(x=>normalize(x.str))
+           .find(v=>v&&!reject.test(v));
+         if(right)return right;
+         // Fallback for PDFs that place the value on the immediately lower line.
+         const below=positioned
+           .filter(x=>x!==item&&x.y>item.y&&x.y-item.y<=22&&x.x>=item.x-8)
+           .sort((a,b)=>a.y-b.y||a.x-b.x)
+           .map(x=>normalize(x.str))
+           .find(v=>v&&!reject.test(v));
+         if(below)return below;
        }
      }
      return '';
@@ -80,7 +85,8 @@
    // Parse each page independently because PDF coordinates restart at the top
    // of every page. This prevents page 2 rows from being merged with page 1.
    const candidates=[];
-   for(const page of pageRows){
+   const productPages=quote?pages.map(items=>groupRows(items,7)):pageRows;
+   for(const page of productPages){
      const header=page.find(r=>r.y>=180&&r.y<=320&&/รห.*สนค|รหัสสินค้า|SKU/i.test(r.text));
      const quantityHeader=page.find(r=>r.y>=180&&r.y<=320&&/จำนวน|qty|quantity/i.test(r.text));
      const tableHeader=header||quantityHeader;
