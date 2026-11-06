@@ -43,10 +43,10 @@
    const allItems=pages.flat();
    const rows=pageRows.flat();
    const allText=rows.map(r=>r.text).join('\n');
-   const docNoItem=allItems.find(x=>x.x>=400&&/\\b(?:Q|BK)\\d{6}\\/\\d{4,6}\\b/i.test(x.str));
-   const number=(docNoItem?.str.match(/\\b(?:Q|BK)\\d{6}\\/\\d{4,6}\\b/i)||[])[0]||'';
-   const quote=/ใบเสนอราคา|quotation|\\bQ\\d{6}\\//i.test(allText);
-   const reservation=/ใบจอง|\\bBK\\d{6}\\//i.test(allText);
+   const docNoItem=allItems.find(x=>x.x>=400&&/\b(?:Q|BK)\d{6}\/\d{4,6}\b/i.test(x.str));
+   const number=(docNoItem?.str.match(/\b(?:Q|BK)\d{6}\/\d{4,6}\b/i)||[])[0]||'';
+   const quote=/ใบเสนอราคา|quotation|\bQ\d{6}\//i.test(allText);
+   const reservation=/ใบจอง|\bBK\d{6}\//i.test(allText);
    // Read customer from the label's own visual row. Do not substitute the
    // company/address block when the Attention/(ชื่อ) value is not readable.
    function readLabeledValue(labels){
@@ -55,7 +55,7 @@
          const idx=row.items.findIndex(x=>labels.some(re=>re.test(x.text)));
          if(idx<0)continue;
          const item=row.items[idx];
-         const labelRe=/(?:เรียน|Attention|\\(ชื่อ\\)|ชื่อ)\\s*[:：]?/i;
+         const labelRe=/(?:เรียน|Attention|\(ชื่อ\)|ชื่อ)\s*[:：]?/i;
          const inline=normalize(item.text.replace(labelRe,''));
          const tail=row.items.slice(idx+1).map(x=>x.text).join(' ').trim();
          const value=normalize([inline,tail].filter(Boolean).join(' '));
@@ -65,8 +65,8 @@
      return '';
    }
    const customerName=quote
-     ? readLabeledValue([/^เรียน(?:\\s|[:：]|$)/i,/^Attention\\b/i])
-     : reservation ? readLabeledValue([/^\\(ชื่อ\\)/i,/^ชื่อ\\s*[:：]/i]) : '';
+     ? readLabeledValue([/^เรียน(?:\s|[:：]|$)/i,/^Attention\b/i])
+     : reservation ? readLabeledValue([/^\(ชื่อ\)/i,/^ชื่อ\s*[:：]/i]) : '';
    // Parse each page independently because PDF coordinates restart at the top
    // of every page. This prevents page 2 rows from being merged with page 1.
    const candidates=[];
@@ -80,9 +80,9 @@
        // A product row must contain both a plausible SKU in the SKU column
        // and a numeric quantity in the quantity column. Totals/discount rows
        // and image captions are therefore not promoted to inventory lines.
-       const sku=findCell(row,18,115,/^(?:\\d{3,5}|\\d{1,4}\\/\\d{1,4})$/);
+       const sku=findCell(row,18,115,/^(?:\d{3,5}|\d{1,4}\/\d{1,4})$/);
        if(!sku)continue;
-       const qtyText=findCell(row,335,430,/^\\d+(?:\\.\\d+)?$/);
+       const qtyText=findCell(row,335,430,/^\d+(?:\.\d+)?$/);
        if(!qtyText)continue;
        const quantity=Number(qtyText);
        if(!Number.isFinite(quantity)||quantity<=0)continue;
@@ -99,13 +99,13 @@
      if(seen.has(key))return false;seen.add(key);return true;
    }).map(({_y,...x})=>x);
    const dateRows=rows.filter(r=>r.y>=125&&r.y<=215);
-   const dateCells=dateRows.map(r=>({y:r.y,value:findCell(r,400,590,/^\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}$/)})).filter(x=>x.value);
+   const dateCells=dateRows.map(r=>({y:r.y,value:findCell(r,400,590,/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)})).filter(x=>x.value);
    const date=dateCells[0]?.value||'';
    const dueDate=dateCells[1]?.value||'';
    const expiryDate=dateCells[2]?.value||'';
    const deliveryRow=rows.find(r=>r.y>=205&&r.y<=220&&r.items.some(x=>x.x>=430&&x.x<=510));
    const deliveryRaw=deliveryRow?.items.filter(x=>x.x>=430&&x.x<=540).map(x=>x.text).join(' ').trim()||'';
-   const deliveryMatch=deliveryRaw.match(/รับเอง|รตบเอง|รบเอง|Flash\\s*Express|Kerry|J&T|ไปรษณีย์|ขนส่ง|จัดส่ง/i);
+   const deliveryMatch=deliveryRaw.match(/รับเอง|รตบเอง|รบเอง|Flash\s*Express|Kerry|J&T|ไปรษณีย์|ขนส่ง|จัดส่ง/i);
    const delivery=deliveryMatch?(/รตบเอง|รบเอง|รับเอง/i.test(deliveryMatch[0])?'รับเอง':deliveryMatch[0]):'';
    const warnings=[];
    if(!number)warnings.push('ไม่พบเลขที่เอกสารในตำแหน่งหัวเอกสาร กรุณาตรวจสอบและกรอกเอง');
