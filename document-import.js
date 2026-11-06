@@ -126,7 +126,8 @@
    return {type:quote?'QUOTATION':reservation?'RESERVATION':'UNKNOWN',customerName,number,date:toISO(date),dueDate:toISO(dueDate),expiryDate:toISO(expiryDate),delivery,items,warnings,rawText:allText};
  }
  function render(result){
-   $('diCustomerName').value=result.customerName||'';\n   $('diType').value=result.type;$('diNumber').value=result.number;
+   $('diCustomerName').value=result.customerName||'';
+   $('diType').value=result.type;$('diNumber').value=result.number;
    $('diDate').value=displayThaiDate(result.date);
    $('diDueDate').value=displayThaiDate(result.dueDate);
    $('diExpiryDate').value=displayThaiDate(result.expiryDate);
