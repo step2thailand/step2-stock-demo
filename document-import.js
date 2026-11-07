@@ -201,7 +201,16 @@
        const rowText=Array.from({length:Math.min(ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.c+1:52,60)},(_,c)=>cellValue(ws,r,c)).join(' ');
        if(/รหัสสินค้า|รหสสนค|รหัส\s*สินค้า/i.test(rowText)&&/จำนวน|qty|quantity/i.test(rowText)){headerRow=r;break;}
      }
-     if(!headerRow)continue;
+     if(!headerRow){
+       // Some exports place continuation rows on a second Worksheet without repeating the header.
+       const lastRow=ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.r+1:0;
+       const hasData=Array.from({length:lastRow},(_,i)=>i+1).some(r=>{
+         const candidate=cellValue(ws,r,skuCol),qty=numeric(cellValue(ws,r,qtyCol));
+         return !!candidate&&qty!==null&&qty>0&&candidate.length<=40;
+       });
+       if(!hasData)continue;
+       headerRow=0;
+     }
      // Locate columns from the header labels, falling back to the known Business Plus layouts.
      const maxCol=Math.min(XLSX.utils.decode_range(ws['!ref']).e.c+1,60);
      for(let c=0;c<maxCol;c++){
@@ -262,7 +271,7 @@
    $('diDelivery').value=result.delivery;
    $('documentImportWarnings').innerHTML=result.warnings.length?'<strong>โปรดตรวจสอบ</strong><ul>'+result.warnings.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':'<strong>ไม่พบคำเตือนจากการอ่านเบื้องต้น</strong>';
    $('documentImportWarnings').classList.remove('hidden');
-   $('documentImportLines').innerHTML=result.items.length?result.items.map((x,i)=>'<article class="picking-line-card" data-di-row="'+i+'"><div class="form-grid"><div><label>SKU</label><input data-di-field="sku" value="'+escapeHtml(x.sku)+'"></div><div><label>ชื่อรายการ</label><input data-di-field="name" value="'+escapeHtml(x.name)+'"></div><div><label>จำนวน</label><input data-di-field="quantity" type="number" min="0" step="1" value="'+x.quantity+'"></div></div><p class="muted">หน่วย: '+escapeHtml(x.unit||'—')+(x.price!==null&&x.price!==undefined?' · ราคา/หน่วย: '+escapeHtml(x.price):'')+(x.discount?' · ส่วนลด: '+escapeHtml(x.discount):'')+' · แหล่งข้อมูล: '+escapeHtml(x.source_sheet?x.source_sheet+' แถว '+x.source_row:'PDF')+'</p><label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-di-field="inventory" type="checkbox" '+(x.is_inventory?'checked':'')+' style="width:auto"> นับเป็นสินค้าในคลัง (ยกเลิกสำหรับค่าบริการ)</label></article>').join(''):'<p class="error">ยังไม่พบรายการสินค้า กรุณาตรวจสอบ PDF</p>';
+   $('documentImportLines').innerHTML=result.items.length?result.items.map((x,i)=>'<article class="picking-line-card" data-di-row="'+i+'"><div class="form-grid"><div><label>SKU</label><input data-di-field="sku" value="'+escapeHtml(x.sku)+'"></div><div><label>ชื่อรายการ</label><input data-di-field="name" value="'+escapeHtml(x.name)+'"></div><div><label>จำนวน</label><input data-di-field="quantity" type="number" min="0" step="1" value="'+x.quantity+'"></div></div><p class="muted">หน่วย: '+escapeHtml(x.unit||'—')+(x.price!==null&&x.price!==undefined?' · ราคา/หน่วย: '+escapeHtml(x.price):'')+(x.discount?' · ส่วนลด: '+escapeHtml(x.discount):'')+' · แหล่งข้อมูล: '+escapeHtml(x.source_sheet?x.source_sheet+' แถว '+x.source_row:'PDF')+'</p><label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-di-field="inventory" type="checkbox" '+(x.is_inventory?'checked':'')+' style="width:auto"> นับเป็นสินค้าในคลัง (ยกเลิกสำหรับค่าบริการ)</label></article>').join(''):'<p class="error">ยังไม่พบรายการสินค้า กรุณาตรวจสอบเอกสาร</p>';
    $('documentImportReview').classList.remove('hidden');
  }
  async function readPdf(file){
