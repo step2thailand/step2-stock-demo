@@ -161,8 +161,8 @@
      return {name,ws,text:Object.keys(ws).filter(k=>k[0]!=='!').map(k=>String(ws[k]?.w??ws[k]?.v??'')).join(' ')};
    });
    const allText=sheetTexts.map(x=>x.text).join(' ');
-   const reservation=/ใบจองสินค้า|ใบจอง|\\bBK\\d{6}\\//i.test(allText);
-   const quote=!reservation&&(/ใบเสนอราคา|quotation|\\bQ\\d{6}\\//i.test(allText));
+   const reservation=/ใบจองสินค้า|ใบจอง|\bBK\d{6}\//i.test(allText);
+   const quote=!reservation&&(/ใบเสนอราคา|quotation|\bQ\d{6}\//i.test(allText));
    const type=reservation?'RESERVATION':quote?'QUOTATION':'UNKNOWN';
    if(type==='UNKNOWN')throw new Error('ไม่สามารถระบุประเภทเอกสารได้ กรุณาตรวจสอบว่าเป็นไฟล์ใบเสนอราคาหรือใบจองจาก Business Plus');
    const col=reservation?{sku:4,name:15,qty:27,unit:25,price:38,discount:43,net:48}:{sku:1,name:5,qty:12,unit:13,price:14,discount:15,net:16};
@@ -199,7 +199,7 @@
      let headerRow=0,skuCol=col.sku,qtyCol=col.qty,nameCol=col.name,unitCol=col.unit,priceCol=col.price,discountCol=col.discount,netCol=col.net;
      for(let r=1;r<=Math.min(ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.r+1:ws['!rows']?.length||200,250);r++){
        const rowText=Array.from({length:Math.min(ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.c+1:52,60)},(_,c)=>cellValue(ws,r,c)).join(' ');
-       if(/รหัสสินค้า|รหสสนค|รหัส\\s*สินค้า/i.test(rowText)&&/จำนวน|qty|quantity/i.test(rowText)){headerRow=r;break;}
+       if(/รหัสสินค้า|รหสสนค|รหัส\s*สินค้า/i.test(rowText)&&/จำนวน|qty|quantity/i.test(rowText)){headerRow=r;break;}
      }
      if(!headerRow)continue;
      // Locate columns from the header labels, falling back to the known Business Plus layouts.
@@ -210,7 +210,7 @@
        else if(/รายการสินค้า|รายการ|product/i.test(v))nameCol=c;
        else if(/จำนวน|qty|quantity/i.test(v))qtyCol=c;
        else if(/หน่วยนับ|หน่วย/i.test(v))unitCol=c;
-       else if(/ราคา\\s*\\/\\s*หน่วย|ราคา@|unit price/i.test(v))priceCol=c;
+       else if(/ราคา\s*\/\s*หน่วย|ราคา@|unit price/i.test(v))priceCol=c;
        else if(/ส่วนลด|discount/i.test(v))discountCol=c;
        else if(/ราคาสุทธิ|net price/i.test(v))netCol=c;
      }
