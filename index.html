@@ -444,7 +444,7 @@
       <div class="warehouse-menu-grid">
         <button type="button" class="menu-picking menu-square" data-warehouse-action="PICKING"><span class="menu-title">งานจัดสินค้า</span><span class="menu-description">จัดของตามใบจอง / พักรอส่ง</span></button>
         <button type="button" class="menu-dispatch menu-square" data-warehouse-action="DISPATCH"><span class="menu-title">ส่งมอบสินค้า</span><span class="menu-description">ยืนยันส่งออกจากจุดพักสินค้า</span></button>
-        <button type="button" class="menu-docimport menu-square" data-warehouse-action="DOC_IMPORT"><span class="menu-title">นำเข้าเอกสาร</span><span class="menu-description">อ่าน PDF ใบเสนอราคา / ใบจอง</span></button>
+        <button type="button" class="menu-docimport menu-square" data-warehouse-action="DOC_IMPORT"><span class="menu-title">นำเข้าเอกสาร</span><span class="menu-description">นำเข้า Excel ใบเสนอราคา / ใบจอง</span></button>
         <button type="button" class="menu-issue menu-square" data-warehouse-action="OUT"><span class="menu-title">เบิกสินค้า</span><span class="menu-description">ตัดสต๊อกสินค้า</span></button>
         <button type="button" class="menu-stock menu-square" data-warehouse-action="STOCK"><span class="menu-title">ตรวจสอบสต๊อก</span><span class="menu-description">ตรวจสอบยอดคงเหลือ</span></button>
         <button type="button" class="menu-move menu-square" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
@@ -519,14 +519,14 @@
     </section>
 
     <section class="panel workflow-panel hidden" id="documentImportPanel">
-      <h2>นำเข้าเอกสาร Business Plus (ทดลอง)</h2>
-      <p class="muted">อ่านข้อมูลจาก PDF เพื่อแสดงตัวอย่างและตรวจสอบก่อนนำเข้า รอบนี้ยังไม่บันทึกฐานข้อมูลและไม่เปลี่ยนแปลงสต๊อก</p>
+      <h2>นำเข้าเอกสาร Business Plus</h2>
+      <p class="muted">ใช้ Excel (.xls / .xlsx) เป็นช่องทางหลัก และ PDF เป็นช่องทางสำรอง ระบบจะแสดงตัวอย่างให้ตรวจสอบเท่านั้น ยังไม่บันทึกฐานข้อมูลและไม่เปลี่ยนแปลงสต๊อก</p>
       <div class="transaction-preview">
         <strong>วิธีใช้งาน</strong>
-        <ol><li>เลือกไฟล์ PDF ใบเสนอราคาหรือใบจอง</li><li>รอระบบอ่านข้อมูล แล้วตรวจสอบเลขที่เอกสาร วันที่ และรายการสินค้า</li><li>แก้ไขข้อมูลที่อ่านผิดได้ในหน้าตรวจสอบ</li></ol>
+        <ol><li>Export ใบเสนอราคาหรือใบจองจาก Business Plus เป็น Excel</li><li>เลือกไฟล์ .xls หรือ .xlsx (รองรับ PDF เป็นทางเลือกสำรอง)</li><li>ตรวจสอบเลขที่เอกสาร วันที่ SKU จำนวน และรายการบริการในหน้าตัวอย่าง</li></ol>
       </div>
-      <label for="documentImportFile">เลือกไฟล์ PDF จาก Business Plus</label>
-      <input id="documentImportFile" type="file" accept="application/pdf,.pdf">
+      <label for="documentImportFile">เลือกไฟล์ Excel (.xls / .xlsx) หรือ PDF (สำรอง)</label>
+      <input id="documentImportFile" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf,.pdf">
       <div id="documentImportStatus" class="status" role="status"></div>
       <div id="documentImportReview" class="hidden">
         <div style="margin-top:14px"><label for="diCustomerName">ชื่อลูกค้า</label><input id="diCustomerName" autocomplete="off" placeholder="อ่านจาก เรียน / Attention หรือ (ชื่อ)"></div>
@@ -544,7 +544,7 @@
         <div id="documentImportLines"></div>
         <div class="transaction-preview">
           <strong>โหมดทดลองเท่านั้น</strong>
-          <p>ปุ่มนี้จะไม่บันทึกข้อมูลเข้าระบบ เป็นเพียงการตรวจสอบผลการอ่าน PDF เท่านั้น</p>
+          <p>โหมดทดลองนี้อ่านข้อมูลเพื่อแสดงตัวอย่างเท่านั้น ไม่มีการสร้างใบงาน ไม่จองสินค้า และไม่เปลี่ยนแปลงยอดสต๊อก</p>
           <button type="button" class="secondary" id="documentImportResetBtn">ล้างผลและเลือกไฟล์ใหม่</button>
         </div>
       </div>
@@ -3974,6 +3974,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
 })();
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="./document-import.js"></script>
 
