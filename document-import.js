@@ -213,15 +213,17 @@
      }
      // Locate columns from the header labels, falling back to the known Business Plus layouts.
      const maxCol=Math.min(XLSX.utils.decode_range(ws['!ref']).e.c+1,60);
-     for(let c=0;c<maxCol;c++){
-       const v=cellValue(ws,headerRow,c);
-       if(/รหัสสินค้า|รหสสนค/i.test(v))skuCol=c;
-       else if(/รายการสินค้า|รายการ|product/i.test(v))nameCol=c;
-       else if(/จำนวน|qty|quantity/i.test(v))qtyCol=c;
-       else if(/หน่วยนับ|หน่วย/i.test(v))unitCol=c;
-       else if(/ราคา\s*\/\s*หน่วย|ราคา@|unit price/i.test(v))priceCol=c;
-       else if(/ส่วนลด|discount/i.test(v))discountCol=c;
-       else if(/ราคาสุทธิ|net price/i.test(v))netCol=c;
+     if(headerRow>0){
+       for(let c=0;c<maxCol;c++){
+         const v=cellValue(ws,headerRow,c);
+         if(/รหัสสินค้า|รหสสนค/i.test(v))skuCol=c;
+         else if(/รายการสินค้า|รายการ|product/i.test(v))nameCol=c;
+         else if(/จำนวน|qty|quantity/i.test(v))qtyCol=c;
+         else if(/หน่วยนับ|หน่วย/i.test(v))unitCol=c;
+         else if(/ราคา\s*\/\s*หน่วย|ราคา@|unit price/i.test(v))priceCol=c;
+         else if(/ส่วนลด|discount/i.test(v))discountCol=c;
+         else if(/ราคาสุทธิ|net price/i.test(v))netCol=c;
+       }
      }
      let sheetCount=0;
      for(let r=headerRow+1;r<=XLSX.utils.decode_range(ws['!ref']).e.r+1;r++){
