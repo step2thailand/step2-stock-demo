@@ -444,6 +444,7 @@
       <div class="warehouse-menu-grid">
         <button type="button" class="menu-picking menu-square" data-warehouse-action="PICKING"><span class="menu-title">งานจัดสินค้า</span><span class="menu-description">จัดของตามใบจอง / พักรอส่ง</span></button>
         <button type="button" class="menu-dispatch menu-square" data-warehouse-action="DISPATCH"><span class="menu-title">ส่งมอบสินค้า</span><span class="menu-description">ยืนยันส่งออกจากจุดพักสินค้า</span></button>
+        <button type="button" class="menu-docimport menu-square" data-warehouse-action="DOC_IMPORT"><span class="menu-title">นำเข้าเอกสาร</span><span class="menu-description">นำเข้า Excel ใบเสนอราคา / ใบจอง</span></button>
         <button type="button" class="menu-issue menu-square" data-warehouse-action="OUT"><span class="menu-title">เบิกสินค้า</span><span class="menu-description">ตัดสต๊อกสินค้า</span></button>
         <button type="button" class="menu-stock menu-square" data-warehouse-action="STOCK"><span class="menu-title">ตรวจสอบสต๊อก</span><span class="menu-description">ตรวจสอบยอดคงเหลือ</span></button>
         <button type="button" class="menu-move menu-square" data-warehouse-action="MOVE"><span class="menu-title">ย้ายตำแหน่ง</span><span class="menu-description">ย้ายสินค้าไปจุดอื่น</span></button>
@@ -514,6 +515,38 @@
         <div id="dispatchWorkLines"></div>
         <div class="withdrawal-wizard-actions"><button type="button" class="secondary" id="dispatchWorkBackBtn">กลับรายการใบงาน</button></div>
         <div id="dispatchWorkStatus" class="status" role="status"></div>
+      </div>
+    </section>
+
+    <section class="panel workflow-panel hidden" id="documentImportPanel">
+      <h2>นำเข้าเอกสาร Business Plus</h2>
+      <p class="muted">ใช้ Excel (.xls / .xlsx) เป็นช่องทางหลัก และ PDF เป็นช่องทางสำรอง ระบบจะแสดงตัวอย่างให้ตรวจสอบเท่านั้น ยังไม่บันทึกฐานข้อมูลและไม่เปลี่ยนแปลงสต๊อก</p>
+      <div class="transaction-preview">
+        <strong>วิธีใช้งาน</strong>
+        <ol><li>Export ใบเสนอราคาหรือใบจองจาก Business Plus เป็น Excel</li><li>เลือกไฟล์ .xls หรือ .xlsx (รองรับ PDF เป็นทางเลือกสำรอง)</li><li>ตรวจสอบเลขที่เอกสาร วันที่ SKU จำนวน และรายการบริการในหน้าตัวอย่าง</li></ol>
+      </div>
+      <label for="documentImportFile">เลือกไฟล์ Excel (.xls / .xlsx) หรือ PDF (สำรอง)</label>
+      <input id="documentImportFile" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf,.pdf">
+      <div id="documentImportStatus" class="status" role="status"></div>
+      <div id="documentImportReview" class="hidden">
+        <div style="margin-top:14px"><label for="diCustomerName">ชื่อลูกค้า</label><input id="diCustomerName" autocomplete="off" placeholder="อ่านจาก เรียน / Attention หรือ (ชื่อ)"></div>
+        <div class="form-grid" style="margin-top:14px">
+          <div><label for="diType">ประเภทเอกสาร</label><select id="diType"><option value="QUOTATION">ใบเสนอราคา</option><option value="RESERVATION">ใบจองสินค้า</option><option value="UNKNOWN">ไม่ทราบประเภท</option></select></div>
+          <div><label for="diNumber">เลขที่เอกสาร</label><input id="diNumber" autocomplete="off"></div>
+          <div><label for="diDate">วันที่เอกสาร</label><input id="diDate" type="text" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off"></div>
+          <div><label for="diDueDate">กำหนดส่ง / นัดรับ</label><input id="diDueDate" type="text" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off"></div>
+          <div><label for="diExpiryDate">วันหมดอายุ</label><input id="diExpiryDate" type="text" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off"></div>
+          <div><label for="diDelivery">วิธีจัดส่ง / รับสินค้า</label><input id="diDelivery" placeholder="เช่น รับเอง / ขนส่ง"></div>
+        </div>
+        <div id="documentImportWarnings" class="transaction-preview hidden"></div>
+        <h3>รายการจากเอกสาร</h3>
+        <p class="muted">ตรวจสอบ SKU และจำนวนทุกบรรทัด รายการบริการต้องปิดการนับเป็นสินค้าในคลัง</p>
+        <div id="documentImportLines"></div>
+        <div class="transaction-preview">
+          <strong>โหมดทดลองเท่านั้น</strong>
+          <p>โหมดทดลองนี้อ่านข้อมูลเพื่อแสดงตัวอย่างเท่านั้น ไม่มีการสร้างใบงาน ไม่จองสินค้า และไม่เปลี่ยนแปลงยอดสต๊อก</p>
+          <button type="button" class="secondary" id="documentImportResetBtn">ล้างผลและเลือกไฟล์ใหม่</button>
+        </div>
       </div>
     </section>
 
@@ -989,6 +1022,8 @@
 
   const $ = id => document.getElementById(id);
   let productsData = [];
+  // Expose a read-only snapshot accessor for the isolated PDF preview module.
+  window.getInventoryProducts = () => productsData;
   let locationsData = [];
   let balanceData = [];
   let historyData = [];
@@ -2557,6 +2592,41 @@ $('logoutBtn').addEventListener('click', async () => {
     button.addEventListener('click', () => {
       const action = button.getAttribute('data-warehouse-action');
 
+      if (action === 'DOC_IMPORT') {
+        const panel = $('documentImportPanel');
+        document.querySelectorAll('.workflow-panel').forEach(p => {
+          p.classList.add('hidden');
+          p.classList.remove('workflow-popup-active');
+        });
+        panel.classList.remove('hidden');
+        panel.classList.add('workflow-popup-active');
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-modal', 'true');
+        document.body.classList.add('workflow-modal-active');
+        if (!panel.querySelector('.workflow-popup-close-row')) {
+          const row = document.createElement('div');
+          row.className = 'workflow-popup-close-row';
+          const close = document.createElement('button');
+          close.type = 'button';
+          close.className = 'workflow-popup-close';
+          close.textContent = 'ปิด กลับเมนู';
+          close.addEventListener('click', () => {
+            panel.classList.add('hidden');
+            panel.classList.remove('workflow-popup-active');
+            panel.removeAttribute('role');
+            panel.removeAttribute('aria-modal');
+            document.body.classList.remove('workflow-modal-active');
+          });
+          row.appendChild(close);
+          panel.insertBefore(row, panel.firstChild);
+        }
+        $('documentImportReview').classList.add('hidden');
+        const status = $('documentImportStatus');
+        status.textContent = 'เลือกไฟล์ Excel หรือ PDF เพื่อเริ่มอ่านเอกสาร';
+        status.className = 'status success';
+        return;
+      }
+
       if (action === 'STOCK') {
         showWorkflowPanel('stockLookupPanel');
         resetStockLookupWizard();
@@ -3701,8 +3771,7 @@ $('stockStatusForm').addEventListener('submit', async event => {
           const p=productsData.find(x=>String(x.id)===pr.dataset.printSkuBarcode);if(!p)return;
           const svg=makeSkuBarcode(p.sku);if(!svg){setStatus('barcodeManagementStatus','สร้างบาร์โค้ดไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ',true);return;}
           const w=window.open('','_blank');if(!w){setStatus('barcodeManagementStatus','เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่',true);return;}
-          w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Barcode '+escapeHtml(p.sku)+'</title><style>body{font-family:Arial,sans-serif;margin:10mm}.label{width:75mm;max-width:100%;text-align:center;padding:4mm;box-sizing:border-box}.barcode{width:100%;height:22mm;object-fit:contain}.product-name{margin-bottom:3mm;font-size:12pt}.sku{font-weight:bold;font-size:14pt;margin-bottom:2mm}@media print{@page{margin:5mm}}</style></head><body><div class="label"><div class="sku">'+escapeHtml(p.sku)+'</div><div class="product-name">'+escapeHtml(p.product_name||'')+'</div><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'"></div><script>window.onload=()=>window.print()<\\/script></body>
-</body></html>');
+          w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Barcode '+escapeHtml(p.sku)+'</title><style>body{font-family:Arial,sans-serif;margin:10mm}.label{width:75mm;max-width:100%;text-align:center;padding:4mm;box-sizing:border-box}.barcode{width:100%;height:22mm;object-fit:contain}.product-name{margin-bottom:3mm;font-size:12pt}.sku{font-weight:bold;font-size:14pt;margin-bottom:2mm}@media print{@page{margin:5mm}}</style></head><body><div class="label"><div class="sku">'+escapeHtml(p.sku)+'</div><div class="product-name">'+escapeHtml(p.product_name||'')+'</div><img class="barcode" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'"></div><script>window.onload=()=>window.print()<\\/script></body></html>');
           w.document.close();
         }
       });
@@ -3904,6 +3973,10 @@ $('stockStatusForm').addEventListener('submit', async event => {
  $('dispatchWorkBackBtn').addEventListener('click',async()=>{$('dispatchWorkStep').classList.add('hidden');$('dispatchHomeStep').classList.remove('hidden');task=null;lines=[];events=[];await refresh();});
 })();
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="./document-import.js"></script>
 
 </body>
 </html>
