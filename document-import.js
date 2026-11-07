@@ -153,6 +153,106 @@
    if(number&&seenDocumentNumbers.has(number))warnings.push('พบเลขที่เอกสารนี้ซ้ำกับไฟล์ที่อ่านไปแล้วในรอบการใช้งานนี้');
    return {type:quote?'QUOTATION':reservation?'RESERVATION':'UNKNOWN',customerName,number,date:toISO(date),dueDate:toISO(dueDate),expiryDate:toISO(expiryDate),delivery,items,warnings,rawText:allText};
  }
+
+ function parseExcel(workbook){
+   if(!window.XLSX)throw new Error('โหลดตัวอ่าน Excel ไม่สำเร็จ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่');
+   const sheetTexts=workbook.SheetNames.map(name=>{
+     const ws=workbook.Sheets[name];
+     return {name,ws,text:Object.keys(ws).filter(k=>k[0]!=='!').map(k=>String(ws[k]?.w??ws[k]?.v??'')).join(' ')};
+   });
+   const allText=sheetTexts.map(x=>x.text).join(' ');
+   const reservation=/ใบจองสินค้า|ใบจอง|\\bBK\\d{6}\\//i.test(allText);
+   const quote=!reservation&&(/ใบเสนอราคา|quotation|\\bQ\\d{6}\\//i.test(allText));
+   const type=reservation?'RESERVATION':quote?'QUOTATION':'UNKNOWN';
+   if(type==='UNKNOWN')throw new Error('ไม่สามารถระบุประเภทเอกสารได้ กรุณาตรวจสอบว่าเป็นไฟล์ใบเสนอราคาหรือใบจองจาก Business Plus');
+   const col=reservation?{sku:4,name:15,qty:27,unit:25,price:38,discount:43,net:48}:{sku:1,name:5,qty:12,unit:13,price:14,discount:15,net:16};
+   const cellValue=(ws,r,c)=>{
+     const cell=ws[XLSX.utils.encode_cell({r:r-1,c})];
+     if(!cell||cell.v===undefined||cell.v===null)return '';
+     return String(cell.w!==undefined?cell.w:cell.v).trim();
+   };
+   const numeric=(v)=>{
+     const n=Number(String(v??'').replace(/,/g,'').replace(/[฿\s]/g,''));
+     return Number.isFinite(n)?n:null;
+   };
+   const dateValue=(ws,address)=>{
+     const cell=ws[address];if(!cell)return '';
+     if(typeof cell.v==='number'&&cell.t==='n'&&cell.z&&/[ymd]/i.test(cell.z)){
+       const d=XLSX.SSF.parse_date_code(cell.v);
+       if(d)return String(d.d).padStart(2,'0')+'/'+String(d.m).padStart(2,'0')+'/'+String(d.y);
+     }
+     return String(cell.w!==undefined?cell.w:cell.v??'').trim();
+   };
+   const metadataSheet=sheetTexts.find(x=>x.text.trim())?.ws;
+   const numberAddress=reservation?'AN16':'U12';
+   const dateAddress=reservation?'AN20':'U14';
+   const customerAddress=reservation?'F14':'G12';
+   const number=dateValue(metadataSheet,numberAddress);
+   const date=dateValue(metadataSheet,dateAddress);
+   const customerName=dateValue(metadataSheet,customerAddress);
+   const dueDate=reservation?dateValue(metadataSheet,'AN29'):'';
+   const expiryDate=reservation?dateValue(metadataSheet,'AN33'):'';
+   const delivery=reservation?dateValue(metadataSheet,'AN37'):'';
+   const items=[],parsedSheets=[];
+   for(const entry of sheetTexts){
+     const ws=entry.ws;
+     let headerRow=0,skuCol=col.sku,qtyCol=col.qty,nameCol=col.name,unitCol=col.unit,priceCol=col.price,discountCol=col.discount,netCol=col.net;
+     for(let r=1;r<=Math.min(ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.r+1:ws['!rows']?.length||200,250);r++){
+       const rowText=Array.from({length:Math.min(ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.c+1:52,60)},(_,c)=>cellValue(ws,r,c)).join(' ');
+       if(/รหัสสินค้า|รหสสนค|รหัส\\s*สินค้า/i.test(rowText)&&/จำนวน|qty|quantity/i.test(rowText)){headerRow=r;break;}
+     }
+     if(!headerRow)continue;
+     // Locate columns from the header labels, falling back to the known Business Plus layouts.
+     const maxCol=Math.min(XLSX.utils.decode_range(ws['!ref']).e.c+1,60);
+     for(let c=0;c<maxCol;c++){
+       const v=cellValue(ws,headerRow,c);
+       if(/รหัสสินค้า|รหสสนค/i.test(v))skuCol=c;
+       else if(/รายการสินค้า|รายการ|product/i.test(v))nameCol=c;
+       else if(/จำนวน|qty|quantity/i.test(v))qtyCol=c;
+       else if(/หน่วยนับ|หน่วย/i.test(v))unitCol=c;
+       else if(/ราคา\\s*\\/\\s*หน่วย|ราคา@|unit price/i.test(v))priceCol=c;
+       else if(/ส่วนลด|discount/i.test(v))discountCol=c;
+       else if(/ราคาสุทธิ|net price/i.test(v))netCol=c;
+     }
+     let sheetCount=0;
+     for(let r=headerRow+1;r<=XLSX.utils.decode_range(ws['!ref']).e.r+1;r++){
+       const sku=cellValue(ws,r,skuCol);
+       if(!sku||/รหัสสินค้า|รหสสนค/i.test(sku))continue;
+       const qtyText=cellValue(ws,r,qtyCol),quantity=numeric(qtyText);
+       if(quantity===null||quantity<=0)continue;
+       // Ignore totals and non-SKU labels; retain slash SKUs such as 4/1 and 4/2 as text.
+       if(sku.length>40||/รวม|หมายเหตุ|total/i.test(sku))continue;
+       const name=cellValue(ws,r,nameCol);
+       const service=sku==='4/2'||/ค่าบริการจัดส่ง|บริการจัดส่ง|ค่าขนส่ง|delivery service|shipping service/i.test(name);
+       const product=service?null:productBySku(sku);
+       const unit=cellValue(ws,r,unitCol);
+       const price=numeric(cellValue(ws,r,priceCol));
+       const discount=cellValue(ws,r,discountCol);
+       const net=numeric(cellValue(ws,r,netCol));
+       items.push({
+         sku,name:sku==='4/2'?'ค่าบริการจัดส่งสินค้า':(product?.product_name||name||'ไม่พบชื่อในฐานข้อมูลสินค้า'),
+         quantity,unit:unit|| (service?'ครั้ง':'ชุด'),price,discount,net,
+         is_inventory:!service,matched_product:service||!!product,
+         source_sheet:entry.name,source_row:r
+       });
+       sheetCount++;
+     }
+     if(sheetCount)parsedSheets.push(entry.name);
+   }
+   const warnings=[];
+   if(!number)warnings.push('ไม่พบเลขที่เอกสารในช่องมาตรฐาน กรุณาตรวจสอบและกรอกเอง');
+   if(!date||!toISO(date))warnings.push('ไม่พบวันที่เอกสารหรือรูปแบบวันที่ไม่ถูกต้อง กรุณาตรวจสอบ');
+   if(!customerName)warnings.push('ไม่พบชื่อลูกค้าในช่องมาตรฐาน กรุณากรอกเอง');
+   if(!items.length)warnings.push('ไม่พบรายการสินค้าในตาราง กรุณาตรวจสอบรูปแบบไฟล์ Excel');
+   if(items.some(x=>!x.matched_product&&!['4/2'].includes(x.sku)))warnings.push('มี SKU ที่ไม่พบในฐานข้อมูลสินค้า กรุณาตรวจสอบก่อนใช้งาน');
+   if(items.some(x=>x.sku==='4/2'))warnings.push('พบ SKU 4/2 ซึ่งเป็นค่าบริการ ไม่ควรนับเป็นสินค้าในคลัง');
+   if(reservation&&!delivery)warnings.push('ไม่พบวิธีจัดส่งในช่องมาตรฐาน กรุณาตรวจสอบ');
+   const invalidQty=items.filter(x=>!Number.isInteger(x.quantity));
+   if(invalidQty.length)warnings.push('พบจำนวนที่ไม่ใช่จำนวนเต็ม '+invalidQty.length+' รายการ กรุณาตรวจสอบ');
+   if(number&&seenDocumentNumbers.has(number))warnings.push('พบเลขที่เอกสารนี้ซ้ำกับไฟล์ที่อ่านไปแล้วในรอบการใช้งานนี้');
+   return {type,customerName,number,date:toISO(date),dueDate:toISO(dueDate),expiryDate:toISO(expiryDate),delivery,items,warnings,rawText:allText,sourceSheets:parsedSheets};
+ }
+
  function render(result){
    $('diCustomerName').value=result.customerName||'';
    $('diType').value=result.type;$('diNumber').value=result.number;
@@ -162,7 +262,7 @@
    $('diDelivery').value=result.delivery;
    $('documentImportWarnings').innerHTML=result.warnings.length?'<strong>โปรดตรวจสอบ</strong><ul>'+result.warnings.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':'<strong>ไม่พบคำเตือนจากการอ่านเบื้องต้น</strong>';
    $('documentImportWarnings').classList.remove('hidden');
-   $('documentImportLines').innerHTML=result.items.length?result.items.map((x,i)=>'<article class="picking-line-card" data-di-row="'+i+'"><div class="form-grid"><div><label>SKU</label><input data-di-field="sku" value="'+escapeHtml(x.sku)+'"></div><div><label>ชื่อรายการ</label><input data-di-field="name" value="'+escapeHtml(x.name)+'"></div><div><label>จำนวน</label><input data-di-field="quantity" type="number" min="0" step="1" value="'+x.quantity+'"></div></div><label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-di-field="inventory" type="checkbox" '+(x.is_inventory?'checked':'')+' style="width:auto"> นับเป็นสินค้าในคลัง (ยกเลิกสำหรับค่าบริการ)</label></article>').join(''):'<p class="error">ยังไม่พบรายการสินค้า กรุณาตรวจสอบ PDF</p>';
+   $('documentImportLines').innerHTML=result.items.length?result.items.map((x,i)=>'<article class="picking-line-card" data-di-row="'+i+'"><div class="form-grid"><div><label>SKU</label><input data-di-field="sku" value="'+escapeHtml(x.sku)+'"></div><div><label>ชื่อรายการ</label><input data-di-field="name" value="'+escapeHtml(x.name)+'"></div><div><label>จำนวน</label><input data-di-field="quantity" type="number" min="0" step="1" value="'+x.quantity+'"></div></div><p class="muted">หน่วย: '+escapeHtml(x.unit||'—')+(x.price!==null&&x.price!==undefined?' · ราคา/หน่วย: '+escapeHtml(x.price):'')+(x.discount?' · ส่วนลด: '+escapeHtml(x.discount):'')+' · แหล่งข้อมูล: '+escapeHtml(x.source_sheet?x.source_sheet+' แถว '+x.source_row:'PDF')+'</p><label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-di-field="inventory" type="checkbox" '+(x.is_inventory?'checked':'')+' style="width:auto"> นับเป็นสินค้าในคลัง (ยกเลิกสำหรับค่าบริการ)</label></article>').join(''):'<p class="error">ยังไม่พบรายการสินค้า กรุณาตรวจสอบ PDF</p>';
    $('documentImportReview').classList.remove('hidden');
  }
  async function readPdf(file){
@@ -183,12 +283,23 @@
  fileInput.addEventListener('change',async()=>{
    const file=fileInput.files?.[0];if(!file)return;
    $('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');
-   setStatus('กำลังอ่าน PDF และแยกข้อมูลตามตำแหน่งบนเอกสาร: '+file.name+' ...');
+   const isExcel=/\.(xlsx|xls)$/i.test(file.name);
+   setStatus((isExcel?'กำลังอ่าน Excel ทุกแถวและทุก Worksheet: ':'กำลังอ่าน PDF: ')+file.name+' ...');
    try{
-     const pages=await readPdf(file);
-     if(!pages.some(p=>p.length)){setStatus('ไฟล์นี้ไม่มีข้อความให้อ่าน อาจเป็น PDF แบบภาพสแกน รุ่นนี้ยังไม่รองรับ OCR',true);return;}
-     const parsed=parsePositioned(pages);if(parsed.number)seenDocumentNumbers.add(parsed.number);render(parsed);
-     setStatus('อ่าน PDF เสร็จแล้ว · พบ '+parsed.items.length+' แถวในบริเวณตาราง · กรุณาตรวจสอบทุกช่องก่อนใช้งาน · ไม่มีการบันทึกข้อมูล');
+     let parsed;
+     if(isExcel){
+       if(!window.XLSX)throw new Error('ยังโหลดตัวอ่าน Excel ไม่สำเร็จ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่');
+       const data=await file.arrayBuffer();
+       const workbook=XLSX.read(data,{type:'array',cellDates:false,cellText:true});
+       parsed=parseExcel(workbook);
+     }else{
+       const pages=await readPdf(file);
+       if(!pages.some(p=>p.length)){setStatus('ไฟล์นี้ไม่มีข้อความให้อ่าน อาจเป็น PDF แบบภาพสแกน รุ่นนี้ยังไม่รองรับ OCR',true);return;}
+       parsed=parsePositioned(pages);
+     }
+     if(parsed.number)seenDocumentNumbers.add(parsed.number);
+     render(parsed);
+     setStatus('อ่าน '+(isExcel?'Excel':'PDF')+' เสร็จแล้ว · พบ '+parsed.items.length+' รายการ'+(parsed.sourceSheets?.length?' จาก '+parsed.sourceSheets.length+' Worksheet':'')+' · กรุณาตรวจสอบทุกช่อง · ไม่มีการบันทึกข้อมูล');
    }catch(e){setStatus('อ่านไฟล์ไม่สำเร็จ: '+(e?.message||e),true);}
  });
  $('documentImportLines').addEventListener('input',e=>{
@@ -196,7 +307,7 @@
    if(e.target.dataset.diField==='quantity'&&Number(e.target.value)<0)e.target.value='0';
  });
  $('documentImportResetBtn').addEventListener('click',()=>{
-   fileInput.value='';$('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');setStatus('ล้างผลการอ่านแล้ว กรุณาเลือกไฟล์ PDF ใหม่');
+   fileInput.value='';$('documentImportReview').classList.add('hidden');$('documentImportWarnings').classList.add('hidden');setStatus('ล้างผลการอ่านแล้ว กรุณาเลือกไฟล์ Excel หรือ PDF ใหม่');
  });
 
 })();
